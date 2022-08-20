@@ -214,7 +214,7 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
                 filter={"_id": ObjectId(payload.get("user_id"))},
                 update={"$pull": {"liked": {"_id": activity["_id"]}}},
             )
-            if not result.acknowledged:
+            if result.modified_count == 0:
                 my_data = await request.app.db[self.collection].find_one_and_update(
                     filter={"_id": ObjectId(payload.get("user_id"))},
                     projection={"created_at": False},

@@ -3,6 +3,7 @@ import re
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 from pymongo import InsertOne, ASCENDING
+from bson.objectid import ObjectId
 
 from src.crud.base import CRUDBase
 from src.schema import CreateActivity, UpdateActivity
@@ -10,7 +11,7 @@ from src.util import get_datetime, convert_datetime_to_string
 
 
 class CRUDActivity(CRUDBase[CreateActivity, UpdateActivity]):
-    async def get_multi(self, request: Request):
+    async def get_multi(self, request: Request, payload):
         documents = await request.app.db[self.collection].find(
             filter={
                 "$or": [
@@ -25,7 +26,23 @@ class CRUDActivity(CRUDBase[CreateActivity, UpdateActivity]):
                 ("reservation_start_date", ASCENDING)
             ]
         ).to_list(length=None)
+        
+        my_data = await request.app.db["users"].find_one(
+            filter={"_id": ObjectId(payload.get("user_id"))}
+        )
+        if my_data:
+            liked_activities = [
+                liked_activity["_id"] for liked_activity in my_data["liked"]
+            ]
+        else:
+            liked_activities = []
+        
         for document in documents:
+            if document["_id"] in liked_activities:
+                document["is_liked"] = True
+            else:
+                document["is_liked"] = False
+                
             document["_id"] = str(document["_id"])
             for key, value in document.items():
                 if re.match(pattern=r".+_date", string=key):

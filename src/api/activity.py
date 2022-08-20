@@ -33,13 +33,14 @@ async def create(request: Request) -> JSONResponse:
 @router.get(path=PLURAL_PREFIX)
 async def get_multi(
     request: Request,
-    payment: PaymentType = Query(None, description="유무로 여부를 나타내는 쿼리 매개변수")
+    payload = Depends(user_crud.auth_user),
+    # payment: PaymentType = Query(None, description="유무로 여부를 나타내는 쿼리 매개변수")
 ) -> JSONResponse:
     """
     활동 목록 다량 조회 API
     
     """
-    result = await activity_crud.get_multi(request)
+    result = await activity_crud.get_multi(request=request, payload=payload)
     return JSONResponse(
         content={"data": result},
         status_code=status.HTTP_200_OK,

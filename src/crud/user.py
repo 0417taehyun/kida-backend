@@ -209,44 +209,52 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
                 projection={"created_at": False}
             )
             activity["like"] = payload.get("user_type")
-            my_data = await request.app.db[self.collection].find_one_and_update(
+            
+            result = await request.app.db[self.collection].update_one(
                 filter={"_id": ObjectId(payload.get("user_id"))},
-                projection={"created_at": False},
-                update={"$push": {"liked": activity}},
-                return_document=ReturnDocument.AFTER
+                update={"$pull": {"liked": {"_id": activity["_id"]}}},
             )
-            other_data = await request.app.db[self.collection].find_one(
-                filter={"_id": ObjectId(payload.get("other_id"))},
-                projection={"created_at": False},
-            )
+            if not result.acknowledged:
+                my_data = await request.app.db[self.collection].find_one_and_update(
+                    filter={"_id": ObjectId(payload.get("user_id"))},
+                    projection={"created_at": False},
+                    update={"$push": {"liked": activity}},
+                    return_document=ReturnDocument.AFTER
+                )
+                other_data = await request.app.db[self.collection].find_one(
+                    filter={"_id": ObjectId(payload.get("other_id"))},
+                    projection={"created_at": False},
+                )    
             
-            temp_list: dict = {}
-            like_list: list[dict] = []
+            return True        
             
-            if my_data["liked"]:
-                for data in my_data["liked"]:               
-                    data["like"] = [payload.get("user_type")]
-                    temp_list[str(data.pop("_id"))] = data
+            # temp_list: dict = {}
+            # like_list: list[dict] = []
             
-            if other_data["liked"]:
-                for data in other_data["liked"]:
-                    if (_id := str(data["_id"])) in temp_list:
-                        temp_list[_id]["like"].append(
-                            payload.get("other_type")
-                        )
+            # if my_data["liked"]:
+            #     for data in my_data["liked"]:               
+            #         data["like"] = [payload.get("user_type")]
+            #         temp_list[str(data.pop("_id"))] = data
+            
+            # if other_data["liked"]:
+            #     for data in other_data["liked"]:
+            #         if (_id := str(data["_id"])) in temp_list:
+            #             temp_list[_id]["like"].append(
+            #                 payload.get("other_type")
+            #             )
                     
-                    else:
-                        data["like"] = [payload.get("other_type")]
-                        temp_list[str(data.pop("_id"))] = data
+            #         else:
+            #             data["like"] = [payload.get("other_type")]
+            #             temp_list[str(data.pop("_id"))] = data
             
-            if temp_list:
-                for _id, data in temp_list.items():
-                    for key, value in data.items():
-                        if re.match(pattern=r".+_date", string=key):
-                            data[key] = convert_datetime_to_string(value)                 
-                    like_list.append({"_id": _id, **data})
+            # if temp_list:
+            #     for _id, data in temp_list.items():
+            #         for key, value in data.items():
+            #             if re.match(pattern=r".+_date", string=key):
+            #                 data[key] = convert_datetime_to_string(value)                 
+            #         like_list.append({"_id": _id, **data})
             
-            return like_list
+            # return like_list
         
         else:
             activity = await request.app.db["activities"].find_one(

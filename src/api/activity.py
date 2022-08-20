@@ -53,16 +53,16 @@ async def create_list(
     payload = Depends(user_crud.auth_user),
 ):
     try:
-        result = await user_crud.create_list(
+        if await user_crud.create_list(
             request=request,
             type=type,
             activity_id=activity_id,
             payload=payload,
-        )
-        return JSONResponse(
-            content={"data": result},
-            status_code=status.HTTP_200_OK
-        )
+        ):
+            return JSONResponse(
+                content={"data": "Success"},
+                status_code=status.HTTP_200_OK
+            )
         
     except Exception as error:
         return JSONResponse(

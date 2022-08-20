@@ -17,7 +17,10 @@ class CreateUser(UserBase):
     child_id: str | None
     parent_id: str | None
     password: str
+    liked: list[dict] | None
+    visited: list[dict] | None
 
 
 class UpdateUser(UserBase):
-    pass
+    child_like: list
+    parent_like: list

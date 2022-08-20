@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Request, status, Query, Depends
 from fastapi.responses import JSONResponse
 
 from src.crud import user_crud
@@ -9,6 +9,22 @@ SINGLE_PREFIX = "/user"
 PLURAL_PREFIX = "/users"
 
 router = APIRouter()
+
+
+@router.get(path=SINGLE_PREFIX + "/activities")
+async def get_multi(
+    request: Request,
+    type: str = Query("liked"),
+    payload = Depends(user_crud.auth_user)
+):
+    try:
+        await user_crud.get_list(request=request, type=type, payload=payload)
+        
+    except Exception as error:
+        return JSONResponse(
+            content={"detail": str(error)},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @router.post(path=SINGLE_PREFIX + "/sign-in")

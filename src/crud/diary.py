@@ -59,7 +59,10 @@ class CRUDDiary(CRUDBase[CreateDiary, UpdateDiary]):
         user_type: UserType
     ):
         documents = await request.app.db[self.collection].find(
-            filter={f"{user_type}_id": ObjectId(user_id)},
+            filter={
+                f"{user_type}_id": ObjectId(user_id),
+                "is_child_answered": True,
+            },
             projection={
                 "parent_answer": False,
                 "created_at": False,

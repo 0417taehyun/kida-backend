@@ -1,10 +1,13 @@
+import re
+
 from fastapi import Request, HTTPException, status, Header
 from bson.objectid import ObjectId
 from passlib.context import CryptContext
 from jose import JWTError, jwt
+from pymongo import ReturnDocument
 
 from src.core import get_settings
-from src.util import get_datetime
+from src.util import get_datetime, convert_datetime_to_string
 from src.crud.base import CRUDBase
 from src.schema import CreateUser, UpdateUser
 
@@ -63,9 +66,18 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
             if password_ctx.verify(
                 secret=user_data.password, hash=user["password"]
             ):
+                if user["type"] == "child":
+                    other_type = "parent"
+                    other_id = str(user["parent_id"])
+                else:
+                    other_type = "child"
+                    other_id = str(user["child_id"])
+                    
                 encoded_data = {
                     "user_type": user["type"],
-                    "user_id": str(user["_id"])
+                    "user_id": str(user["_id"]),
+                    "other_type": other_type,
+                    "other_id": other_id
                 }
                 access_token = jwt.encode(
                     claims=encoded_data,
@@ -76,6 +88,40 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
 
             else:
                 return None
+    
+    async def get_list(self, request: Request, type, payload):
+        if type =="liked":
+            my_data = await request.app.db[self.collection].find(
+                filter={"_id": ObjectId(payload.get("user_id"))},
+                projection={"created_at": False},
+            ).to_list(length=None)
+            other_data = await request.app.db[self.collection].find(
+                filter={"_id": ObjectId(payload.get("other_id"))},
+                projection={"created_at": False}
+            ).to_list(length=None)
+            
+            temp_list: dict = {}
+            like_list: list[dict] = []
+            for data in my_data["liked"]:               
+                data["like"] = [payload.get("user_type")]
+                temp_list[str(data.pop("_id"))] = data
+            
+            for data in other_data["liked"]:
+                if data["_id"] in temp_list:
+                    temp_list["_id"]["like"].append(
+                        payload.get("other_type")
+                    )
+                
+                else:
+                    temp_list[str(data.pop("_id"))] = data
+            
+            for _id, data in temp_list.items():
+                for key, value in data.items():
+                    if re.match(pattern=r".+_date", string=key):
+                        data[key] = convert_datetime_to_string(value)                 
+                like_list.append({"_id": _id, **data})
+            
+            return like_list
     
     async def create(self, request: Request, insert_data: CreateUser) -> bool | dict | None:
         password_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -117,6 +163,87 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
                 )
         
         return result
+
+    async def create_list(
+        self, request: Request, type: str, activity_id: str, payload
+    ):
+        if type == "liked":
+            activity = await request.app.db["activities"].find_one(
+                filter={"_id": ObjectId(activity_id)},
+                projection={"created_at": False}
+            )
+            my_data = await request.app.db[self.collection].find_one_and_update(
+                filter={"_id": ObjectId(payload.get("user_id"))},
+                projection={"created_at": False},
+                update={"$push": {"liked": activity}},
+                return_document=ReturnDocument.AFTER
+            )
+            other_data = await request.app.db[self.collection].find_one_and_update(
+                filter={"_id": ObjectId(payload.get("other_id"))},
+                projection={"created_at": False},
+                update={"$push": {"liked": activity}},
+                return_document=ReturnDocument.AFTER
+            )
+            
+            temp_list: dict = {}
+            like_list: list[dict] = []
+            for data in my_data["liked"]:               
+                data["like"] = [payload.get("user_type")]
+                temp_list[str(data.pop("_id"))] = data
+            
+            for data in other_data["liked"]:
+                if data["_id"] in temp_list:
+                    temp_list["_id"]["like"].append(
+                        payload.get("other_type")
+                    )
+                
+                else:
+                    temp_list[str(data.pop("_id"))] = data
+            
+            for _id, data in temp_list.items():
+                for key, value in data.items():
+                    if re.match(pattern=r".+_date", string=key):
+                        data[key] = convert_datetime_to_string(value)                 
+                like_list.append({"_id": _id, **data})
+            
+            return like_list
+        
+        else:
+            activity = await request.app.db["activities"].find_one(
+                {"_id": ObjectId(activity_id)},
+                projection={"created_at": False}
+            )
+            my_data = await request.app.db[self.collection].find_one_and_update(
+                filter={"_id": ObjectId(payload.get("user_id"))},
+                update={
+                    "$push": {"visited": activity},
+                    "$pull": {"liked._id": activity["_id"]}
+                },
+                return_document=ReturnDocument.AFTER
+            )
+            other_data = await request.app.db[self.collection].find_one_and_update(
+                filter={"_id": ObjectId(payload.get("other_id"))},
+                update={
+                    "$push": {"visited": activity},
+                    "$pull": {"liked._id": activity["_id"]}
+                },
+                return_document=ReturnDocument.AFTER
+            )
+            
+            temp_list: dict = {}
+            visit_list: list[dict] = []
+            for data in my_data["visited"]:
+                temp_list[str(data.pop("_id"))] : data
+            
+            for data in other_data["visited"]:
+                if data["_id"] not in temp_list:
+                    temp_list[str(data.pop("_id"))] = data
+            
+            for _id, data in temp_list.items():
+                visit_list.append({"_id": _id, **data})
+            
+            return visit_list
+            
                 
         
     

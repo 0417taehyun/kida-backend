@@ -50,6 +50,6 @@ class CRUDBase(Generic[CreateSchema, UpdateSchema]):
         pass
     
         
-    async def delete(self, request: Request):
-        pass
+    async def delete(self, request: Request, field, value):
+        await request.app.db[self.collection].delete_many(filter={field: value})
     

@@ -17,7 +17,7 @@ class CRUDQuestion(CRUDBase[CreateQuestion, UpdateQuestion]):
         last_answered = await request.app.db["diaries"].find(
             filter={
                 f"{user_type}_id": ObjectId(payload.get("user_id")),
-                "type": "answer"
+                "diary_type": "answer"
             },
             sort=[("created_at", DESCENDING)],
             limit=1
@@ -90,7 +90,7 @@ class CRUDQuestion(CRUDBase[CreateQuestion, UpdateQuestion]):
                 )
                 
                 result["diary_id"] = str(document.inserted_id)
-                result["qustion_id"] = str(question["_id"])
+                result["question_id"] = str(question["_id"])
                 result["question_content"] = question["content"]
                 result["question_keyword"] = question["keyword"]  
                 result["is_child_answered"] = False 

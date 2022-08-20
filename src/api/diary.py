@@ -135,3 +135,21 @@ async def write_diary(
             content={"detail": str(error)},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@router.delete(SINGLE_PREFIX)
+async def delete(request: Request):
+    try:
+        from bson.objectid import ObjectId
+        await diary_crud.delete(
+            request=request,
+            field="_id",
+            value=ObjectId("6301150fac5820c7d9b564b4")
+        )
+    
+    except Exception as error:
+        return JSONResponse(
+            content={"detail": str(error)},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    

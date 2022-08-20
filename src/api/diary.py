@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from src.schema import (
     CreateDiary,
     UpdateDiary,
+    DiaryType,
     get_diary_response
 )
 from src.crud import user_crud, diary_crud
@@ -89,12 +90,13 @@ async def get_multi(
 
 
 @router.post(
-    path=SINGLE_PREFIX + "/{diary_id}",
+    path=SINGLE_PREFIX + "/{id}",
 )
 async def write_diary(
     request: Request,
-    diary_id: str = Path(..., description="글을 쓰고자 하는 일기의 고유 아이디"),
+    id: str = Path(..., description="글을 쓰고자 하는 일기의 고유 아이디"),
     update_data: UpdateDiary = Body(..., description="일기 답변 내용"),
+    type: DiaryType = Query("answer", ),
     payload = Depends(user_crud.auth_user)
 ) -> JSONResponse:
     """
@@ -112,8 +114,9 @@ async def write_diary(
     try:
         if await diary_crud.update(
             request=request,
-            id=diary_id,
+            id=id,
             payload=payload,
+            diary_type=type,
             update_data=update_data
         ):
             return JSONResponse(

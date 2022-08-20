@@ -15,7 +15,10 @@ class CRUDQuestion(CRUDBase[CreateQuestion, UpdateQuestion]):
 
         user_type = payload.get("user_type")
         last_answered = await request.app.db["diaries"].find(
-            filter={f"{user_type}_id": ObjectId(payload.get("user_id"))},
+            filter={
+                f"{user_type}_id": ObjectId(payload.get("user_id")),
+                "type": "answer"
+            },
             sort=[("created_at", DESCENDING)],
             limit=1
         ).to_list(length=None)

@@ -256,55 +256,55 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
             
             # return like_list
         
-        else:
-            activity = await request.app.db["activities"].find_one(
-                {"_id": ObjectId(activity_id)},
-                projection={"created_at": False}
-            )
-            my_data = await request.app.db[self.collection].find_one_and_update(
-                filter={"_id": ObjectId(payload.get("user_id"))},
-                update={"$push": {"visited": activity}},
-                projection={"created_at": False},
-                return_document=ReturnDocument.AFTER
-            )
-            my_data = await request.app.db[self.collection].find_one_and_update(
-                filter={"_id": ObjectId(payload.get("user_id"))},
-                update={"$pull": {"liked": {"_id": activity["_id"]}}},
-                projection={"created_at": False},
-                return_document=ReturnDocument.AFTER
-            )     
-            other_data = await request.app.db[self.collection].find_one_and_update(
-                filter={"_id": ObjectId(payload.get("other_id"))},
-                update={"$push": {"visited": activity}},
-                projection={"created_at": False},
-                return_document=ReturnDocument.AFTER                
-            )                   
-            other_data = await request.app.db[self.collection].find_one_and_update(
-                filter={"_id": ObjectId(payload.get("other_id"))},
-                update={"$pull": {"liked": {"_id": activity["_id"]}}},
-                projection={"created_at": False},
-                return_document=ReturnDocument.AFTER                
-            )
+        # else:
+        #     activity = await request.app.db["activities"].find_one(
+        #         {"_id": ObjectId(activity_id)},
+        #         projection={"created_at": False}
+        #     )
+        #     my_data = await request.app.db[self.collection].find_one_and_update(
+        #         filter={"_id": ObjectId(payload.get("user_id"))},
+        #         update={"$push": {"visited": activity}},
+        #         projection={"created_at": False},
+        #         return_document=ReturnDocument.AFTER
+        #     )
+        #     my_data = await request.app.db[self.collection].find_one_and_update(
+        #         filter={"_id": ObjectId(payload.get("user_id"))},
+        #         update={"$pull": {"liked": {"_id": activity["_id"]}}},
+        #         projection={"created_at": False},
+        #         return_document=ReturnDocument.AFTER
+        #     )     
+        #     other_data = await request.app.db[self.collection].find_one_and_update(
+        #         filter={"_id": ObjectId(payload.get("other_id"))},
+        #         update={"$push": {"visited": activity}},
+        #         projection={"created_at": False},
+        #         return_document=ReturnDocument.AFTER                
+        #     )                   
+        #     other_data = await request.app.db[self.collection].find_one_and_update(
+        #         filter={"_id": ObjectId(payload.get("other_id"))},
+        #         update={"$pull": {"liked": {"_id": activity["_id"]}}},
+        #         projection={"created_at": False},
+        #         return_document=ReturnDocument.AFTER                
+        #     )
             
-            temp_list: dict = {}
-            visit_list: list[dict] = []
-            if my_data["visited"]:
-                for data in my_data["visited"]:
-                    temp_list[str(data.pop("_id"))] : data
+        #     temp_list: dict = {}
+        #     visit_list: list[dict] = []
+        #     if my_data["visited"]:
+        #         for data in my_data["visited"]:
+        #             temp_list[str(data.pop("_id"))] : data
             
-            if other_data["visited"]:
-                for data in other_data["visited"]:
-                    if data["_id"] not in temp_list:
-                        temp_list[str(data.pop("_id"))] = data
+        #     if other_data["visited"]:
+        #         for data in other_data["visited"]:
+        #             if data["_id"] not in temp_list:
+        #                 temp_list[str(data.pop("_id"))] = data
                         
-            if temp_list:
-                for _id, data in temp_list.items():
-                    for key, value in data.items():
-                        if re.match(pattern=r".+_date", string=key):
-                            data[key] = convert_datetime_to_string(value)                 
-                    visit_list.append({"_id": _id, **data})                        
+        #     if temp_list:
+        #         for _id, data in temp_list.items():
+        #             for key, value in data.items():
+        #                 if re.match(pattern=r".+_date", string=key):
+        #                     data[key] = convert_datetime_to_string(value)                 
+        #             visit_list.append({"_id": _id, **data})                        
 
-            return visit_list
+        #     return visit_list
         
     
 user_crud = CRUDUser(collection="users")

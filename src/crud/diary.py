@@ -96,34 +96,98 @@ class CRUDDiary(CRUDBase[CreateDiary, UpdateDiary]):
         request: Request,
         id: str,
         payload,
+        diary_type: str,
         update_data: UpdateDiary
     ):
-        user_type=payload.get("user_type")
-        converted_update_data: dict = update_data.dict(exclude_none=True)
-        if user_type == "child":
-            await request.app.db["users"].find_one(
-                {"_id": payload.get("user_id")}
-            )
+        user_type = payload.get("user_type")
+        
+        if diary_type == "activity":
+            if user_type == "child":
+                activity = await request.app.db["activities"].find_one(
+                    filter={"_id": ObjectId(id)},
+                    projection={"created_at": False}
+                )
+                update_data = {
+                    "child_id": ObjectId(payload.get("user_id")),
+                    "parent_id": ObjectId(payload.get("other_id")),
+                    "question_id": activity["_id"],
+                    "question_content": activity["title"],
+                    "question_keyword":  None,
+                    "child_answered_at": get_datetime(),
+                    "parent_answered_at": None,
+                    "is_child_read": False,
+                    "is_parent_read": False,
+                    "is_child_answered": True,
+                    "is_parent_answered": False,
+                    "emotion": update_data.emotion,
+                    "child_answer": update_data.answer,
+                    "sequence_id": None,
+                    "created_at": get_datetime(),
+                    "diary_type": "activity"
+                }        
+                result = await request.app.db[self.collection].insert_one(
+                    update_data
+                )
+
+                await request.app.db["users"].find_one_and_update(
+                    filter={"_id": ObjectId(payload.get("user_id"))},
+                    update={"$push": {"visited": activity}},
+                )
+                await request.app.db["users"].find_one_and_update(
+                    filter={"_id": ObjectId(payload.get("user_id"))},
+                    update={"$pull": {"liked": {"_id": activity["_id"]}}},
+                )     
+                await request.app.db["users"].find_one_and_update(
+                    filter={"_id": ObjectId(payload.get("other_id"))},
+                    update={"$push": {"visited": activity}},              
+                )                   
+                await request.app.db["users"].find_one_and_update(
+                    filter={"_id": ObjectId(payload.get("other_id"))},
+                    update={"$pull": {"liked": {"_id": activity["_id"]}}},            
+                )                
+                
+            else:
+                converted_update_data: dict = update_data.dict(
+                    exclude_none=True
+                )
+                converted_update_data["parent_answered_at"] = get_datetime()
+                converted_update_data["parent_answer"] = (
+                    converted_update_data.pop("answer")
+                )
+                converted_update_data["is_parent_answered"] = True
+                result = (
+                    await request.app.db[self.collection].find_one_and_update(
+                        {"_id": ObjectId(id)}, {"$set": converted_update_data}
+                    )
+                )
             
-            converted_update_data["child_answered_at"] = get_datetime()
-            converted_update_data["child_answer"] = converted_update_data.pop(
-                "answer"
-            )
-            converted_update_data["is_child_answered"] = True
-            result = await request.app.db[self.collection].find_one_and_update(
-                {"_id": ObjectId(id)}, {"$set": converted_update_data}
-            )
         
         else:
-            converted_update_data["parent_answered_at"] = get_datetime()
-            converted_update_data["parent_answer"] = converted_update_data.pop(
-                "answer"
-            )
-            converted_update_data["is_parent_answered"] = True
-            result = await request.app.db[self.collection].find_one_and_update(
-                {"_id": ObjectId(id)}, {"$set": converted_update_data}
-            )
+            converted_update_data: dict = update_data.dict(exclude_none=True)
+            if user_type == "child":
+                await request.app.db["users"].find_one(
+                    {"_id": payload.get("user_id")}
+                )
+                
+                converted_update_data["child_answered_at"] = get_datetime()
+                converted_update_data["child_answer"] = converted_update_data.pop(
+                    "answer"
+                )
+                converted_update_data["is_child_answered"] = True
+                result = await request.app.db[self.collection].find_one_and_update(
+                    {"_id": ObjectId(id)}, {"$set": converted_update_data}
+                )
             
+            else:
+                converted_update_data["parent_answered_at"] = get_datetime()
+                converted_update_data["parent_answer"] = converted_update_data.pop(
+                    "answer"
+                )
+                converted_update_data["is_parent_answered"] = True
+                result = await request.app.db[self.collection].find_one_and_update(
+                    {"_id": ObjectId(id)}, {"$set": converted_update_data}
+                )
+                
         return result
 
 

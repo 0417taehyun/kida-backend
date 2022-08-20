@@ -94,7 +94,7 @@ async def get_multi(
 async def write_diary(
     request: Request,
     diary_id: str = Path(..., description="글을 쓰고자 하는 일기의 고유 아이디"),
-    update_data: UpdateDiary = Body(None, description="일기 답변 내용"),
+    update_data = Body(None, description="일기 답변 내용"),
     payload = Depends(user_crud.auth_user)
 ) -> JSONResponse:
     """
@@ -110,26 +110,30 @@ async def write_diary(
     5. surprised : 놀람
     """
     try:
-        if await diary_crud.update(
-            request=request,
-            id=diary_id,
-            user_type=payload.get("user_type"),
-            update_data=update_data
-        ):
-            return JSONResponse(
-                content={"detail": str(update_data)},
-                status_code=status.HTTP_200_OK
-            )
+        return JSONResponse(
+            content={"detail": str(update_data)},
+            status_code=status.HTTP_200_OK
+        )
+        # if await diary_crud.update(
+        #     request=request,
+        #     id=diary_id,
+        #     user_type=payload.get("user_type"),
+        #     update_data=update_data
+        # ):
+        #     return JSONResponse(
+        #         content={"detail": str(update_data)},
+        #         status_code=status.HTTP_200_OK
+        #     )
         
-        else:
-            return JSONResponse(
-                content={"deetail": "Database Error"},
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        
+        # else:
+        #     return JSONResponse(
+        #         content={"deetail": "Database Error"},
+        #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        #     )
+
     except Exception as error:
         return JSONResponse(
-            content={"detail": str(error)},
+            content={"detail": str(update_data)},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
         

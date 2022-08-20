@@ -98,7 +98,6 @@ class CRUDDiary(CRUDBase[CreateDiary, UpdateDiary]):
         user_type: UserType,
         update_data: UpdateDiary
     ):
-        print(update_data)
         converted_update_data: dict = update_data.dict(exclude_none=True)
         if user_type == "child":
             converted_update_data["child_answered_at"] = get_datetime()

@@ -117,7 +117,7 @@ async def write_diary(
             update_data=update_data
         ):
             return JSONResponse(
-                content={"detail": "Success"},
+                content={"detail": update_data},
                 status_code=status.HTTP_200_OK
             )
         

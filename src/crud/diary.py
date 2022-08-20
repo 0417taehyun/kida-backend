@@ -1,6 +1,6 @@
 from fastapi import Request
 from bson.objectid import ObjectId
-from pymongo import ReturnDocument
+from pymongo import ReturnDocument, DESCENDING
 
 from src.crud.base import CRUDBase
 from src.schema import CreateDiary, UpdateDiary, UserType
@@ -73,7 +73,7 @@ class CRUDDiary(CRUDBase[CreateDiary, UpdateDiary]):
                 "parent_id": False,
                 "child_id": False,
             }
-        ).to_list(length=None)
+        ).sort([("child_answerd_at", DESCENDING)]).to_list(length=None)
         for document in documents:
             if "child_answered_at" in document:
                 document["from_today"] = (

@@ -129,10 +129,18 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
             return like_list
         
         else:
+            if payload.get("user_type") == "child":
+                filter = {"child_id": ObjectId(payload.get("user_id"))}
+            else:
+                filter = {"parent_id": ObjectId(payload.get("user_id"))}
+            
             my_data = await request.app.db[self.collection].find_one(
                 filter={"_id": ObjectId(payload.get("user_id"))},
                 projection={"created_at": False},
             )
+            diaries = await request.app.db["diaries"].find(
+                filter=filter
+            ).to_list(length=None)            
             other_data = await request.app.db[self.collection].find_one(
                 filter={"_id": ObjectId(payload.get("other_id"))},
                 projection={"created_at": False}
@@ -141,10 +149,19 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
             visit_list: list[dict] = []
             if my_data["visited"]:
                 for data in my_data["visited"]:
-                    temp_list[str(data.pop("_id"))] : data
+                    data["diary_id"] = None
+                    for diary_data in diaries:
+                        if diary_data["question_id"] == data["_id"]:
+                            data["diary_id"] = str(diary_data["_id"])
+                    
+                    temp_list[str(data.pop("_id"))] = data
             
             if other_data["visited"]:
-                for data in other_data["visited"]:
+                for data in other_data["visited"]:               
+                    for diary_data in diaries:
+                        if diary_data["question_id"] == data["_id"]:
+                            data["diary_id"] = str(diary_data["_id"])
+                                                
                     if data["_id"] not in temp_list:
                         temp_list[str(data.pop("_id"))] = data
                         
@@ -156,7 +173,6 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
                     visit_list.append({"_id": _id, **data})                        
 
             return visit_list            
-            
             
     
     async def create(self, request: Request, insert_data: CreateUser) -> bool | dict | None:

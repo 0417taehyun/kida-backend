@@ -2,7 +2,7 @@ import re
 
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
-from pymongo import InsertOne
+from pymongo import InsertOne, ASCENDING
 
 from src.crud.base import CRUDBase
 from src.schema import CreateActivity, UpdateActivity
@@ -19,6 +19,11 @@ class CRUDActivity(CRUDBase[CreateActivity, UpdateActivity]):
                 ]
             },
             projection={"created_at": False}
+        ).sort(
+            [
+                ("event_start_date", ASCENDING),
+                ("reservation_start_date", ASCENDING)
+            ]
         ).to_list(length=None)
         for document in documents:
             document["_id"] = str(document["_id"])

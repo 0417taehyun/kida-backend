@@ -94,7 +94,7 @@ async def get_multi(
 async def write_diary(
     request: Request,
     diary_id: str = Path(..., description="글을 쓰고자 하는 일기의 고유 아이디"),
-    update_data: UpdateDiary = Body(..., description="일기 답변 내용"),
+    update_data: UpdateDiary = Body(None, description="일기 답변 내용"),
     payload = Depends(user_crud.auth_user)
 ) -> JSONResponse:
     """

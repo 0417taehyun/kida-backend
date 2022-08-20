@@ -34,8 +34,6 @@ async def get(request: Request, payload=Depends(user_crud.auth_user)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-
-
 @router.post(SINGLE_PREFIX)
 async def create(request: Request, insert_data: CreateQuestion) -> JSONResponse:
     try:
@@ -52,3 +50,4 @@ async def create(request: Request, insert_data: CreateQuestion) -> JSONResponse:
             content={"detail": str(error)},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+        

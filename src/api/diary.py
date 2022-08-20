@@ -110,30 +110,26 @@ async def write_diary(
     5. surprised : 놀람
     """
     try:
-        return JSONResponse(
-            content={"detail": str(update_data)},
-            status_code=status.HTTP_200_OK
-        )
-        # if await diary_crud.update(
-        #     request=request,
-        #     id=diary_id,
-        #     user_type=payload.get("user_type"),
-        #     update_data=update_data
-        # ):
-        #     return JSONResponse(
-        #         content={"detail": str(update_data)},
-        #         status_code=status.HTTP_200_OK
-        #     )
+        if await diary_crud.update(
+            request=request,
+            id=diary_id,
+            user_type=payload.get("user_type"),
+            update_data=update_data
+        ):
+            return JSONResponse(
+                content={"detail": str(update_data)},
+                status_code=status.HTTP_200_OK
+            )
         
-        # else:
-        #     return JSONResponse(
-        #         content={"deetail": "Database Error"},
-        #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-        #     )
+        else:
+            return JSONResponse(
+                content={"deetail": "Database Error"},
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     except Exception as error:
         return JSONResponse(
-            content={"detail": str(update_data)},
+            content={"detail": str(error)},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
         

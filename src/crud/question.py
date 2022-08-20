@@ -61,12 +61,12 @@ class CRUDQuestion(CRUDBase[CreateQuestion, UpdateQuestion]):
             last_answered = last_answered[0]
             if (
                 last_answered["is_child_answered"]
-                and
-                (
-                    datetime.now()
-                    -
-                    last_answered["child_answered_at"]
-                ).total_seconds() // 3600 >= 24
+                # and
+                # (
+                #     datetime.now()
+                #     -
+                #     last_answered["child_answered_at"]
+                # ).total_seconds() // 3600 >= 24
             ):
                 question = await request.app.db[self.collection].find_one(
                     filter={"sequence_id": last_answered["sequence_id"] + 1}

@@ -53,7 +53,8 @@ class CRUDQuestion(CRUDBase[CreateQuestion, UpdateQuestion]):
             result["diary_id"] = str(document.inserted_id)
             result["qustion_id"] = str(question["_id"])
             result["question_content"] = question["content"]
-            result["question_keyword"] = question["keyword"]            
+            result["question_keyword"] = question["keyword"]    
+            result["is_child_answered"] = False
 
         
         else:
@@ -88,7 +89,8 @@ class CRUDQuestion(CRUDBase[CreateQuestion, UpdateQuestion]):
                 result["diary_id"] = str(document.inserted_id)
                 result["qustion_id"] = str(question["_id"])
                 result["question_content"] = question["content"]
-                result["question_keyword"] = question["keyword"]   
+                result["question_keyword"] = question["keyword"]  
+                result["is_child_answered"] = False 
 
 
             else:
@@ -96,6 +98,7 @@ class CRUDQuestion(CRUDBase[CreateQuestion, UpdateQuestion]):
                 result["question_id"] = str(last_answered["question_id"])
                 result["question_content"] = last_answered["question_content"]
                 result["question_keyword"] = last_answered["question_keyword"]
+                result["is_child_answered"] = True
 
         
         return result

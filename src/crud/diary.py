@@ -28,9 +28,10 @@ class CRUDDiary(CRUDBase[CreateDiary, UpdateDiary]):
                 },
                 return_document=ReturnDocument.AFTER
             )
-            document["parent_answered_at"] = convert_datetime_to_string(
-                document["parent_answered_at"], format="%y.%m.%d %H시 %M분"
-            )
+            if document["parent_answered_at"]:
+                document["parent_answered_at"] = convert_datetime_to_string(
+                    document["parent_answered_at"], format="%y.%m.%d %H시 %M분"
+                )
             
         else:
             document = await request.app.db[self.collection].find_one_and_update(
@@ -46,9 +47,10 @@ class CRUDDiary(CRUDBase[CreateDiary, UpdateDiary]):
                 },
                 return_document=ReturnDocument.AFTER                
             )
-            document["parent_answered_at"] = convert_datetime_to_string(
-                document["parent_answered_at"], format="%y.%m.%d %H시 %M분"
-            )           
+            if document["parent_answered_at"]:
+                document["parent_answered_at"] = convert_datetime_to_string(
+                    document["parent_answered_at"], format="%y.%m.%d %H시 %M분"
+                )           
             
         return document
     

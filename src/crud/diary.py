@@ -118,7 +118,7 @@ class CRUDDiary(CRUDBase[CreateDiary, UpdateDiary]):
             result = await request.app.db[self.collection].find_one_and_update(
                 {"_id": ObjectId(id)}, {"$set": converted_update_data}
             )
-
+            
         return result
 
 

@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import Request
 from bson.objectid import ObjectId
-from pymongo import DESCENDING
+from pymongo import ASCENDING
 
 from src.util import get_datetime
 from src.crud.base import CRUDBase
@@ -16,7 +16,7 @@ class CRUDQuestion(CRUDBase[CreateQuestion, UpdateQuestion]):
         user_type = payload.get("user_type")
         last_answered = await request.app.db["diaries"].find(
             filter={f"{user_type}_id": ObjectId(payload.get("user_id"))},
-            sort=[("child_answered_at", DESCENDING)],
+            sort=[("child_answered_at", ASCENDING)],
             limit=1
         ).to_list(length=None)
         if not last_answered:
@@ -62,11 +62,11 @@ class CRUDQuestion(CRUDBase[CreateQuestion, UpdateQuestion]):
             if (
                 last_answered["is_child_answered"]
                 and
-                ((
+                (
                     datetime.now()
                     -
                     last_answered["child_answered_at"]
-                ).seconds // 3600) > 24
+                ).total_seconds() // 3600 >= 24
             ):
                 question = await request.app.db[self.collection].find_one(
                     filter={"sequence_id": last_answered["sequence_id"] + 1}
@@ -77,12 +77,12 @@ class CRUDQuestion(CRUDBase[CreateQuestion, UpdateQuestion]):
                     parent_id=last_answered["parent_id"],
                     question_id=question["_id"],
                     question_content=question["content"],
-                    questoin_keyword=question["keyword"],
+                    question_keyword=question["keyword"],
                     sequence_id=question["sequence_id"]
                 )
                 converted_diary_data = diary.dict()
                 converted_diary_data["created_at"] = get_datetime()
-                document = request.app.db["diaries"].insert_one(
+                document = await request.app.db["diaries"].insert_one(
                     converted_diary_data
                 )
                 
@@ -98,7 +98,7 @@ class CRUDQuestion(CRUDBase[CreateQuestion, UpdateQuestion]):
                 result["question_id"] = str(last_answered["question_id"])
                 result["question_content"] = last_answered["question_content"]
                 result["question_keyword"] = last_answered["question_keyword"]
-                result["is_child_answered"] = True
+                result["is_child_answered"] = last_answered["is_child_answered"]
 
         
         return result

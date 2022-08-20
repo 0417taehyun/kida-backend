@@ -18,7 +18,21 @@ async def get_multi(
     payload = Depends(user_crud.auth_user)
 ):
     try:
-        await user_crud.get_list(request=request, type=type, payload=payload)
+        if result := await user_crud.get_list(
+            request=request,
+            type=type,
+            payload=payload
+        ):
+            return JSONResponse(
+                content={"data": result},
+                status_code=status.HTTP_200_OK
+            )
+        
+        else:
+            return JSONResponse(
+                content={"data": []},
+                status_code=status.HTTP_200_OK
+            )
         
     except Exception as error:
         return JSONResponse(

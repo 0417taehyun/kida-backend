@@ -95,6 +95,7 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
                 filter={"_id": ObjectId(payload.get("user_id"))},
                 projection={"created_at": False},
             ).to_list(length=None)
+
             other_data = await request.app.db[self.collection].find(
                 filter={"_id": ObjectId(payload.get("other_id"))},
                 projection={"created_at": False}
@@ -102,23 +103,25 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
             
             temp_list: dict = {}
             like_list: list[dict] = []
-            for data in my_data["liked"]:               
+            for data in my_data[0]["liked"]:               
                 data["like"] = [payload.get("user_type")]
                 temp_list[str(data.pop("_id"))] = data
             
-            for data in other_data["liked"]:
+            for data in other_data[0]["liked"]:
                 if data["_id"] in temp_list:
                     temp_list["_id"]["like"].append(
                         payload.get("other_type")
                     )
-                
                 else:
+                    data["like"] = [payload.get("other_type")]
                     temp_list[str(data.pop("_id"))] = data
-            
+                    
+            print(temp_list)
             for _id, data in temp_list.items():
+                print(data)
                 for key, value in data.items():
                     if re.match(pattern=r".+_date", string=key):
-                        data[key] = convert_datetime_to_string(value)                 
+                        data[key] = convert_datetime_to_string(value)
                 like_list.append({"_id": _id, **data})
             
             return like_list
@@ -172,17 +175,24 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
                 filter={"_id": ObjectId(activity_id)},
                 projection={"created_at": False}
             )
+            activity["like"] = payload.get("user_type")
+            
+            my_data = await request.app.db[self.collection].find_one(
+                filter={
+                    "_id": ObjectId(payload.get("user_id")),
+                    "liked._id": activity["_id"]
+                }
+            )
+            
             my_data = await request.app.db[self.collection].find_one_and_update(
                 filter={"_id": ObjectId(payload.get("user_id"))},
                 projection={"created_at": False},
                 update={"$push": {"liked": activity}},
                 return_document=ReturnDocument.AFTER
             )
-            other_data = await request.app.db[self.collection].find_one_and_update(
+            other_data = await request.app.db[self.collection].find_one(
                 filter={"_id": ObjectId(payload.get("other_id"))},
                 projection={"created_at": False},
-                update={"$push": {"liked": activity}},
-                return_document=ReturnDocument.AFTER
             )
             
             temp_list: dict = {}
@@ -214,7 +224,10 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
                 projection={"created_at": False}
             )
             my_data = await request.app.db[self.collection].find_one_and_update(
-                filter={"_id": ObjectId(payload.get("user_id"))},
+                filter={
+                    "_id": ObjectId(payload.get("user_id")),
+                    "": "",
+                },
                 update={
                     "$push": {"visited": activity},
                     "$pull": {"liked._id": activity["_id"]}
@@ -243,9 +256,6 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
                 visit_list.append({"_id": _id, **data})
             
             return visit_list
-            
-                
         
-    
     
 user_crud = CRUDUser(collection="users")

@@ -127,6 +127,37 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
                     like_list.append({"_id": _id, **data})
             
             return like_list
+        
+        else:
+            my_data = await request.app.db[self.collection].find_one(
+                filter={"_id": ObjectId(payload.get("user_id"))},
+                projection={"created_at": False},
+            )
+            other_data = await request.app.db[self.collection].find_one(
+                filter={"_id": ObjectId(payload.get("other_id"))},
+                projection={"created_at": False}
+            )
+            temp_list: dict = {}
+            visit_list: list[dict] = []
+            if my_data["visited"]:
+                for data in my_data["visited"]:
+                    temp_list[str(data.pop("_id"))] : data
+            
+            if other_data["visited"]:
+                for data in other_data["visited"]:
+                    if data["_id"] not in temp_list:
+                        temp_list[str(data.pop("_id"))] = data
+                        
+            if temp_list:
+                for _id, data in temp_list.items():
+                    for key, value in data.items():
+                        if re.match(pattern=r".+_date", string=key):
+                            data[key] = convert_datetime_to_string(value)                 
+                    visit_list.append({"_id": _id, **data})                        
+
+            return visit_list            
+            
+            
     
     async def create(self, request: Request, insert_data: CreateUser) -> bool | dict | None:
         password_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -230,9 +261,7 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
             )
             my_data = await request.app.db[self.collection].find_one_and_update(
                 filter={"_id": ObjectId(payload.get("user_id"))},
-                update={
-                    "$pull": {"liked": {"$elemMatch": {"_id": activity["_id"]}}}
-                },
+                update={"$pull": {"liked": {"_id": activity["_id"]}}},
                 projection={"created_at": False},
                 return_document=ReturnDocument.AFTER
             )     
@@ -244,9 +273,7 @@ class CRUDUser(CRUDBase[CreateUser, UpdateUser]):
             )                   
             other_data = await request.app.db[self.collection].find_one_and_update(
                 filter={"_id": ObjectId(payload.get("other_id"))},
-                update={
-                    "$pull": {"liked": {"$elemMatch": {"_id": activity["_id"]}}}
-                },
+                update={"$pull": {"liked": {"_id": activity["_id"]}}},
                 projection={"created_at": False},
                 return_document=ReturnDocument.AFTER                
             )

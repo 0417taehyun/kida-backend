@@ -17,6 +17,8 @@ class CreateUser(UserBase):
     child_id: str | None
     parent_id: str | None
     password: str
+    level: int = 1
+    exp_gage: int = 0
     liked: list[dict] | None
     visited: list[dict] | None
 

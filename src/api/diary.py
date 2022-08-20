@@ -113,7 +113,7 @@ async def write_diary(
         if await diary_crud.update(
             request=request,
             id=diary_id,
-            user_type=payload.get("user_type"),
+            payload=payload,
             update_data=update_data
         ):
             return JSONResponse(

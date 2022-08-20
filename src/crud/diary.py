@@ -95,11 +95,16 @@ class CRUDDiary(CRUDBase[CreateDiary, UpdateDiary]):
         self,
         request: Request,
         id: str,
-        user_type: UserType,
+        payload,
         update_data: UpdateDiary
     ):
+        user_type=payload.get("user_type")
         converted_update_data: dict = update_data.dict(exclude_none=True)
         if user_type == "child":
+            await request.app.db["users"].find_one(
+                {"_id": payload.get("user_id")}
+            )
+            
             converted_update_data["child_answered_at"] = get_datetime()
             converted_update_data["child_answer"] = converted_update_data.pop(
                 "answer"

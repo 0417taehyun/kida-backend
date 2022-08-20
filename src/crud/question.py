@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import Request
 from bson.objectid import ObjectId
-from pymongo import ASCENDING
+from pymongo import DESCENDING
 
 from src.util import get_datetime
 from src.crud.base import CRUDBase
@@ -16,7 +16,7 @@ class CRUDQuestion(CRUDBase[CreateQuestion, UpdateQuestion]):
         user_type = payload.get("user_type")
         last_answered = await request.app.db["diaries"].find(
             filter={f"{user_type}_id": ObjectId(payload.get("user_id"))},
-            sort=[("child_answered_at", ASCENDING)],
+            sort=[("created_at", DESCENDING)],
             limit=1
         ).to_list(length=None)
         if not last_answered:

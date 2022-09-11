@@ -1,10 +1,9 @@
 import re
 import requests
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
 from src.core import get_settings
-from src.schema import CreateActivity
 
 
 def get_datetime() -> datetime:

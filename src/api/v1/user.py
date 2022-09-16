@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, Body, Depends, status
+from fastapi import APIRouter, Path, Query, Body, Depends, status
 from fastapi.responses import JSONResponse
 
 from src.schema import (
@@ -15,11 +15,87 @@ from src.crud import crud_user
 
 
 router = APIRouter()
-SINGLE_PREFIX: str = "/user"
-PLURAL_PREFIX: str = "/users"
+BASE_SINGLE_PREFIX: str = "/user"
+BASE_PLURAL_PREFIX: str = "/users"
+DIARY_SINGLE_PREFIX: str = BASE_SINGLE_PREFIX + "/diary"
+DIARY_PLURAL_PREFIX: str = BASE_SINGLE_PREFIX + "/diaries"
+LIKE_PLURAL_PREFIX: str = BASE_SINGLE_PREFIX + "/likes"
+
+@router.get(DIARY_SINGLE_PREFIX)
+def get_latest_diary(
+    db=Depends(get_db), payload=Depends(auth_user)
+) -> JSONResponse:
+    try:
+        if result := crud_user.get_latest_diary(
+            db=db,
+            user_id=payload.get("user_id"),
+            user_type=payload.get("user_type")
+        ):
+            return JSONResponse(
+                content={"data": result},
+                status_code=status.HTTP_200_OK
+            )
+            
+        else:
+            return JSONResponse(
+                content={"data": []},
+                status_code=status.HTTP_200_OK
+            )
+        
+    except Exception as error:
+        return JSONResponse(
+            content={"deatil": str(error)},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@router.get(DIARY_SINGLE_PREFIX)
+def get_specific_diary(
+    diary_id: int = Path(
+        ...,
+        description="",
+        example=""
+    ),
+    db=Depends(get_db),
+    payload=Depends(auth_user)
+) -> JSONResponse:
+    """
+    
+    """
+    try:
+        return
+    
+    except Exception as error:
+        return JSONResponse(
+            content={"detail": str(error)},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
-@router.get(SINGLE_PREFIX + "/likes", responses=get_activiy_likes_response)
+@router.get(DIARY_PLURAL_PREFIX)
+def get_diaries(
+    db=Depends(get_db), payload=Depends(auth_user)
+) -> JSONResponse:
+    try:
+        pass
+    
+    except Exception as error:
+        return JSONResponse
+
+@router.post(DIARY_SINGLE_PREFIX + "/{diary_id}")
+def write_diary(
+    db=Depends(get_db), payload=Depends(auth_user)
+) -> JSONResponse:
+    try:
+        crud_user.write_diary(db=db)
+    
+    except Exception as error:
+        return JSONResponse(
+            content={"detail": str(error)},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )    
+
+
+@router.get(LIKE_PLURAL_PREFIX, responses=get_activiy_likes_response)
 def get_both_activity_likes(
     db=Depends(get_db),
     payload=Depends(auth_user)
@@ -55,9 +131,49 @@ def get_both_activity_likes(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             
         )
+        
+        
+@router.post(LIKE_PLURAL_PREFIX + "/{activity_id}")
+def visit_activity(
+    activity_id: int = Path(
+        ...,
+        description="방문여부를 적용시키기 위한 활동의 고유 기본키(id)",
+        example=1
+    ),
+    db=Depends(get_db),
+    payload=Depends(auth_user)
+):
+    """
+    찜한 활동 중 방문한 활동 등록 API
+    
+    HTTP Method: POST \n
+    Path(required): activity_id \n
+    
+    자녀가 부모와 본인이 찜한 활동 중에서 방문한 활동에 대해 방문했음을 체크하는 API다. \n
+    해당 API를 통해 성공 응답을 받아야 활동에 대해 일기를 작성하는 시나리오로 넘어갈 수 있다. \n
+    이를 통해 방문 했다고 표시했는데 일기를 쓰다가 작성 취소한 경우 방문한 곳에서 일기를 쓸 수 있게 할 수 있다.
+    """
+    try:
+        if crud_user.visit_activity(
+            db=db,
+            user_id=payload.get("user_id"),
+            user_type=payload.get("user_type"),
+            activity_id=activity_id
+        ):
+            return JSONResponse(
+                content={"detail": "success"},
+                status_code=status.HTTP_200_OK
+            )
+        
+        
+    except Exception as error:
+        return JSONResponse(
+            content={"detail": str(error)},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
 
-
-@router.post(SINGLE_PREFIX + "/sign-up", responses=sign_up_response)
+@router.post(BASE_SINGLE_PREFIX + "/sign-up", responses=sign_up_response)
 def sign_up(
     token: str = Query(default=None, description="초대 코드", example="T8x-1Abc"),
     insert_data: CreateUser = Body(
@@ -99,7 +215,7 @@ def sign_up(
         )
 
         
-@router.post(SINGLE_PREFIX + "/sign-in", responses=sign_in_response)
+@router.post(BASE_SINGLE_PREFIX + "/sign-in", responses=sign_in_response)
 def sign_in(user_data: GetUser, db=Depends(get_db)) -> JSONResponse:
     """
     로그인 API
@@ -130,7 +246,7 @@ def sign_in(user_data: GetUser, db=Depends(get_db)) -> JSONResponse:
         )
 
 
-@router.post(SINGLE_PREFIX + "/invite", responses=invite_user_response)
+@router.post(BASE_SINGLE_PREFIX + "/invite", responses=invite_user_response)
 def invite_user(
     db=Depends(get_db), payload=Depends(auth_user)
 ) -> JSONResponse:

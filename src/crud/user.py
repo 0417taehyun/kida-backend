@@ -126,12 +126,10 @@ class CRUDUser(CRUDBase):
                 0
             );
             """
-            
             db.execute(statement=create_parent_child_query)
             db.commit()
             
-            
-            create_diary_query: str = f"""
+            create_diary_query: str = f"""            
             INSERT INTO question_diary
             (child_id, question_id, created_at)
             VALUES (
@@ -181,14 +179,22 @@ class CRUDUser(CRUDBase):
                 parent_activity_like.activity_id AS activity_id
             FROM user
             JOIN parent_activity_like
-            ON user.id = parent_activity_like.parent_id
+            ON (
+                parent_activity_like.is_visited = 0
+                AND
+                user.id = parent_activity_like.parent_id
+            )
             UNION
             SELECT
                 user.type AS user_type,
                 child_activity_like.activity_id AS activity_id
             FROM user
             JOIN child_activity_like
-            ON user.id = child_activity_like.child_id            
+            ON (
+                child_activity_like.is_visited = 0
+                AND
+                user.id = child_activity_like.child_id
+            )
         )
 
         SELECT 
@@ -213,6 +219,165 @@ class CRUDUser(CRUDBase):
             data["users"] = data["users"].split(",")
         
         return converted_result
+    
 
+    def visit_activity(
+        self, db: Session, user_id: int, user_type: str, activity_id: int
+    ) -> bool:
+        query: str = f"""
+        UPDATE {user_type}_activity_like
+        SET is_visited = 1
+        WHERE (
+            activity_id = {activity_id}
+            AND
+            {user_type}_id = {user_id}
+        );
+        """
+        db.execute(statement=query)
+        db.commit()
+        
+        return True
+
+
+    def get_latest_diary(
+        self, db: Session, user_id: int, user_type: str
+    ) -> dict:
+        if user_type == "parent":
+            select_child_query: str = f"""
+            SELECT child_id
+            FROM parent_child
+            WHERE parent_child.parent_id = {user_id}
+            """
+            child_result = db.execute(statement=select_child_query).fetchone()
+            db.commit()
+            
+            child_id: int = child_result["child_id"]
+        
+        else:
+            child_id: int = user_id
+            
+        select_question_diary_query: str = f"""
+        SELECT
+            child.nickname,
+            diary.id,
+            level.id AS level_id,
+            parent_child.experience AS current_experience,
+            level.required_experience AS required_experience,
+            diary.question_content,
+            CASE
+                WHEN diary.content IS NULL THEN level.ordinary_character_image_url
+                WHEN question_diary_reply.answered_at IS NULL THEN level.child_to_parent_character_image_url
+                ELSE level.parent_to_child_character_image_url
+            END AS character_image_url,
+            IF(diary.content IS NULL, 0 ,1) AS is_child_answered,
+            IF(question_diary_reply.answered_at IS NULL, 0, 1) AS is_parent_answered
+        FROM (
+            SELECT
+                specific_child.id,
+                specific_child.child_id,
+                specific_child.emotion_id,
+                specific_child.content,
+                question.id AS question_id,
+                question.content AS question_content
+            FROM (
+                SELECT *
+                FROM question_diary
+                WHERE child_id = {child_id}
+            ) AS specific_child
+            JOIN question
+            ON specific_child.question_id = question.id
+            ORDER BY answered_at IS NULL, answered_at DESC
+            LIMIT 1
+        ) AS diary
+        JOIN child
+        ON diary.child_id = child.id
+        JOIN parent_child
+        ON diary.child_id = parent_child.child_id
+        JOIN level
+        ON parent_child.level_id = level.id
+        LEFT JOIN question_diary_reply
+        ON diary.id = question_diary_reply.question_diary_id 
+        """
+        question_diary_result = db.execute(
+            statement=select_question_diary_query
+        ).fetchone()
+        db.commit()
+        
+        return jsonable_encoder(question_diary_result)
+    
+    
+    def get_diaries(
+        self, db: Session, user_id: int, user_type: str
+    ) -> dict:        
+        query: str = f"""
+        WITH activity_diaries (
+            is_child_answered
+        ) AS (
+            SELECT
+                IF(activity_diary.answered IS NULL 0, 1) is_child_answered
+            FROM (
+                SELECT 
+                FROM child_ativity_like
+                WHERE child_id = (
+                    SELECT child_id
+                    FROM parent_child
+                    WHERE {user_type}_id = {user_id}
+                )
+            ) AS child_liked_activity
+            JOIN activity_diary
+            ON child_liked_activity.id = activity_diary.child_activity_like_id    
+            JOIN activity_diary_reply
+            ON activity_diary.id = activity_diary_reply.activity_diary_id
+        ), question_diaries (
+            id,
+            type,
+            emotion_type,
+            answered_at,
+            is_child_answered,
+            is_parent_answered
+        ) AS (
+            SELECT
+                child_diary.question_diary_id AS id,            
+                "quesiton" AS type,
+                emotion.type AS emotion_type,
+                child_diary.answered_at AS answered_at,
+                IF(child_diary.answered_at IS NULL, 0, 1) AS is_child_answered,
+                IF(question_diary_reply.answered_at IS NULL, 0, 1) AS is_parent_answered
+            FROM (
+                SELECT
+                    id AS question_diary_id,
+                    emotion_id,
+                    answered_at
+                FROM question_diary
+                WHERE child_id = (
+                    SELECT child_id
+                    FROM parent_child
+                    WHERE {user_type}_id = {user_id}
+                )
+            ) AS child_diary
+            JOIN question_diary_reply
+            USING(question_diary_id)
+            JOIN emotion
+            ON child_diary.emotion_id = emtion.id
+        )
+        
+        SELECRT *
+        FROM question_diaries
+        """
+        result = db.execute(statement=query).fetchall()
+        db.commit()
+        
+        return converted_result
+            
+    
+    def write_diary(self, db: Session) -> dict:
+        pass
+        
+        
+    def get_family_information(self, db: Session) -> dict:
+        """
+        
+        """
+        
 
 crud_user = CRUDUser(model=ParentChild)

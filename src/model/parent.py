@@ -37,8 +37,10 @@ class Parent(Base):
     child = relationship(
         "Child", secondary="parent_child", back_populates="parent"
     )
-    question_diary_reply = relationship(
-        "QuestionDiaryReply", back_populates="parent"
+    question_diary = relationship(
+        "QuestionDiaryReply",
+        secondary="questoin_diary_reply",
+        back_populates="parent"
     )
     activity_diary_reply = relationship(
         "ActivityDiaryReply", back_populates="parent"

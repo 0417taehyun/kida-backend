@@ -24,7 +24,9 @@ class QuestionDiary(Base):
     child = relationship("Child", back_populates="question_diary")
     question = relationship("Question", back_populates="question_diary")
     emotion = relationship("Emotion", back_populates="question_diary")
-    question_diary_reply = relationship(
-        "QuestionDiaryReply", back_populates="question_diary"
+    parent = relationship(
+        "Parent",
+        secondary="question_diary_reply",
+        back_populates="question_diary"
     )
     

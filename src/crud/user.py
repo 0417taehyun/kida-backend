@@ -366,8 +366,6 @@ class CRUDUser(CRUDBase):
         """
         result = db.execute(statement=query).fetchall()
         db.commit()
-        
-        return converted_result
             
     
     def write_diary(self, db: Session) -> dict:

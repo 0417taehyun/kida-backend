@@ -25,6 +25,8 @@ LIKE_PLURAL_PREFIX: str = BASE_SINGLE_PREFIX + "/likes"
 def get_latest_diary(
     db=Depends(get_db), payload=Depends(auth_user)
 ) -> JSONResponse:
+    """
+    """
     try:
         if result := crud_user.get_latest_diary(
             db=db,
@@ -47,6 +49,7 @@ def get_latest_diary(
             content={"deatil": str(error)},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
 
 @router.get(DIARY_SINGLE_PREFIX)
 def get_specific_diary(
@@ -80,6 +83,7 @@ def get_diaries(
     
     except Exception as error:
         return JSONResponse
+    
 
 @router.post(DIARY_SINGLE_PREFIX + "/{diary_id}")
 def write_diary(

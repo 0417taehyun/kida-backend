@@ -1,0 +1,34 @@
+from datetime import datetime
+
+from sqlalchemy import Column, Integer, VARCHAR, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+
+from src.database import Base
+
+
+class ActivityDiary(Base):
+    __tablename__: str = "activity_diary"
+    child_activity_like_id: int = Column(
+        "child_activity_like_id",
+        Integer,
+        ForeignKey("child_activity_like.id"),
+        nullable=False
+    )
+    emotion_id: int = Column(
+        "emotion_id",
+        Integer,
+        ForeignKey("emotion.id"),
+        nullable=False
+    )
+    content: str = Column("content", VARCHAR(length=512), nullable=False)
+    answered_at: datetime = Column(
+        "answered_at", DateTime(timezone=True), nullable=False
+    )
+    child_activity_like = relationship(
+        "ChildActivityLike", back_populates="activity_diary"
+    )
+    emotion = relationship("Emotion", back_populates="activity_diary")
+    activity_diary_reply = relationship(
+        "ActivityDiaryReply", back_populates="activity_diary"
+    )
+    

@@ -4,25 +4,17 @@ import requests
 from datetime import datetime, timedelta
 
 from src.core import get_settings
+from src.util.time_converter import convert_string_to_datetime
+from src.schema import (
+    CreateActivity, CreateActivityLocation, CreateActivityCategory
+)
 
-
-def get_datetime() -> datetime:
-    delta = timedelta(hours=9)
-    return datetime.utcnow() + delta
-
-def convert_string_to_datetime(str_datetime: str) -> datetime:
-    return datetime.strptime(str_datetime, "%Y-%m-%d %H:%M:%S.%f")
-
-def convert_datetime_to_string(
-    datetime: datetime, format="%Y-%m-%d %H-%M-%S"
-) -> str:
-    return datetime.strftime(format)
 
 def get_seoul_culture_events(
     start_index: int = 0,
     end_index: int = 100,
     secret_key: str = get_settings().SEOUL_DATA_PORTAL_SECRET_KEY,
-) -> dict:
+) -> list[dict]:
     BASE_URL: str = "http://openAPI.seoul.go.kr:8088/"
     response = requests.get(
         url = (
@@ -41,23 +33,22 @@ def get_seoul_culture_events(
     else:
         result["data"]: list[dict] = []
         for data in response["row"]:
-            if (payment := data["PAYATNM"]) != "무료":
-                payment = "유료"
-                        
-            title: str = re.sub(
-                pattern=r"([\[\(\{].+[\]\}\)])",
+            if data["PAYATNM"] == "무료":
+                payment: str = "free"
+            else:
+                payment: str = "cost"
+
+            category_name: str = re.sub(
+                pattern=r"\/",
                 repl="",
-                string=data["SVCNM"]
-            ).lstrip()
-            if not title:
-                title = data["SVCNM"]
-            result["data"].append(
-                CreateActivity(
-                    title=title,
-                    type=data["MINCLASSNM"],
-                    state=data["SVCSTATNM"],
+                string=data["MINCLASSNM"]
+            )
+            
+            schema: dict = {
+                "activity": CreateActivity(
+                    title=data["SVCNM"],
                     payment=payment,
-                    location=data["AREANM"],
+                    place=data["PLACENM"],
                     reservation_start_date=convert_string_to_datetime(
                         str_datetime=data["RCPTBGNDT"]
                     ),
@@ -75,7 +66,16 @@ def get_seoul_culture_events(
                     target=data["USETGTINFO"],
                     geo_location_x=float(data["X"]),
                     geo_location_y=float(data["Y"])
+                ),
+                "location": CreateActivityLocation(
+                    name=data["AREANM"]
+                ),
+                "category": CreateActivityCategory(
+                    name=category_name
                 )
-            )
+            }    
+            
+            result["data"].append(schema)
+
     
     return result

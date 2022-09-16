@@ -17,7 +17,8 @@ class Settings(BaseSettings):
 
 class DeveloperSettings(Settings):
     DB_URL: str = Field(env="DEVELOP_DB_URL")
-    DB_NAME: str = Field(env="DEVELOP_DB_NAME")
+    AWS_ACCESS_KEY_ID: str = Field(env="DEVELOP_AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY: str = Field(env="DEVELOP_AWS_SECRET_ACCESS_KEY")
     
     ALLOW_ORIGINS: list[str] = ["*"]
     ALLOW_CREDENTIALS: bool = True
@@ -27,7 +28,8 @@ class DeveloperSettings(Settings):
 
 class ProductSettings(Settings):
     DB_URL: str = Field(env="PRODUCT_DB_URL")
-    DB_NAME: str = Field(env="PRODUCT_DB_NAME")
+    AWS_ACCESS_KEY_ID: str = Field(env="PRODUCT_AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY: str = Field(env="PRODUCT_AWS_SECRET_ACCESS_KEY")
     
     ALLOW_ORIGINS: list[str] = ["*"]
     ALLOW_CREDENTIALS: bool = True

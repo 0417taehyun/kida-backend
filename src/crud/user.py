@@ -4,6 +4,7 @@ from secrets import token_urlsafe
 from jose import jwt
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
+from fastapi.encoders import jsonable_encoder
 
 from src.core import get_settings
 from src.crud.base import CRUDBase
@@ -165,16 +166,49 @@ class CRUDUser(CRUDBase):
     def get_activity_likes(
         self, db: Session, user_id: int, user_type: str
     ) -> list[dict]:
-        
         query: str = f"""
-        SELECT
-            parent_child.parent_id,
-            parent_child.child_id
-        FROM parent_child
-        JOIN {user_type}
-        USING ({user_id})
+        WITH RECURSIVE user (id, type) AS (
+            SELECT parent_id AS id, "parent" AS type
+            FROM parent_child
+            WHERE {user_type}_id = {user_id}
+            UNION
+            SELECT child_id AS id, "child" AS type
+            FROM parent_child
+            WHERE {user_type}_id = {user_id}
+        ), Likes (user_type, activity_id) AS (
+            SELECT
+                user.type AS user_type,
+                parent_activity_like.activity_id AS activity_id
+            FROM user
+            JOIN parent_activity_like
+            ON user.id = parent_activity_like.parent_id
+            UNION
+            SELECT
+                user.type AS user_type,
+                child_activity_like.activity_id AS activity_id
+            FROM user
+            JOIN child_activity_like
+            ON user.id = child_activity_like.child_id            
+        )
         
+
+        SELECT 
+            users,
+            activity.*
+        FROM (
+            SELECT
+                activity_id AS id,
+                GROUP_CONCAT(user_type) AS users
+            FROM Likes
+            GROUP BY id         
+        ) AS UserLikes
+        JOIN activity
+        USING (id);
         """
+        result = db.execute(statement=query).fetchall()
+        db.commit()
+        
+        return jsonable_encoder(result)
 
 
 crud_user = CRUDUser(model=ParentChild)

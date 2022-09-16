@@ -208,7 +208,12 @@ class CRUDUser(CRUDBase):
         result = db.execute(statement=query).fetchall()
         db.commit()
         
-        return jsonable_encoder(result)
+        converted_result: list[dict] = jsonable_encoder(result)
+        
+        for data in converted_result:
+            data["users"] = data["users"].split(",")
+        
+        return converted_result
 
 
 crud_user = CRUDUser(model=ParentChild)

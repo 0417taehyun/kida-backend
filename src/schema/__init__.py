@@ -19,6 +19,7 @@ from src.schema.user import (
     GetUser,
     CreateUser,
     invite_user_response,
+    get_activiy_likes_response,
     sign_in_response,
     sign_up_response
 )

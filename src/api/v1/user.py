@@ -5,6 +5,7 @@ from src.schema import (
     GetUser,
     CreateUser,
     invite_user_response,
+    get_activiy_likes_response,
     sign_in_response,
     sign_up_response
 )
@@ -18,11 +19,19 @@ SINGLE_PREFIX: str = "/user"
 PLURAL_PREFIX: str = "/users"
 
 
-@router.get(SINGLE_PREFIX + "/likes")
+@router.get(SINGLE_PREFIX + "/likes", responses=get_activiy_likes_response)
 def get_both_activity_likes(
     db=Depends(get_db),
     payload=Depends(auth_user)
 ) -> JSONResponse:
+    """
+    찜한 활동 조회 API
+    
+    HTTP Method: GET \n
+    
+    부무와 자녀가 찜한 활동을 조회하는 API로 응답 내부에서 users 키를 통해 누가 찜한 활동인지 구분되어 있다. \n
+    이때 users 키의 값은 배열 형태로 만약 부모와 자녀 모두 찜한 경우 ["parent", "child"] 같은 형태로 전달된다.
+    """
     try:
         if result := crud_user.get_activity_likes(
             db=db,

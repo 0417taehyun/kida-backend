@@ -190,7 +190,6 @@ class CRUDUser(CRUDBase):
             JOIN child_activity_like
             ON user.id = child_activity_like.child_id            
         )
-        
 
         SELECT 
             users,

@@ -13,6 +13,9 @@ PLURAL_PREFIX: str = "/emotions"
 
 @router.get(PLURAL_PREFIX)
 def get_emotions(db=Depends(get_db)) -> JSONResponse:
+    """
+    전체 감정 조회 API
+    """
     try:
         if result := crud_emotion.get_multi(db=db):
             return JSONResponse(

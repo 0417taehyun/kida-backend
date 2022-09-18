@@ -1,4 +1,4 @@
-from src.schema.response import GetResponseModel, ErrorResponseModel
+from src.schema.response import GetResponseModel
 
 
 invite_user_response = {

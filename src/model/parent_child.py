@@ -22,6 +22,9 @@ class ParentChild(Base):
     )
     level_id: int = Column("level_id", Integer, ForeignKey(column="level.id"), default=1, nullable=False)
     experience: int = Column("experience", Integer, default=0, nullable=False)
+    invitation_code: str = Column(
+        "invitation_code", VARCHAR(length=8), nullable=False
+    )    
     level = relationship("Level", back_populates="parent_child")
     family = relationship("Family", back_populates="parent_child")
     

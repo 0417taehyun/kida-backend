@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
     SECRET_KEY: str = Field(env="SECRET_KEY")
     ALGORITHM: str = Field(env="ALGORITHM")
-    
+    INVITATION_CODE_EXPIRED_HOURS: int = 24
     SEOUL_DATA_PORTAL_SECRET_KEY: str
 
     class Config:

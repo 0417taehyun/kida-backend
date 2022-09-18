@@ -1,4 +1,5 @@
 from enum import Enum
+from datetime import timedelta
 from secrets import token_urlsafe
 
 from jose import jwt
@@ -10,13 +11,19 @@ from src.core import get_settings
 from src.crud.base import CRUDBase
 from src.model import ParentChild
 from src.schema import CreateUser
-from src.util import get_current_datetime, convert_datetime_to_string
+from src.util import (
+    get_current_datetime,
+    convert_datetime_to_string,
+    convert_string_to_datetime
+)
 
 
 class CRUDUser(CRUDBase):
     def sign_in(self, db: Session, user_data: CreateUser) -> str:
         query: str = f"""
-        WITH RECURSIVE user (id, type, account, password, nickname) AS (
+        WITH RECURSIVE user (
+            id, type, account, password, nickname
+        ) AS (
             SELECT id, type, account, password, nickname
             FROM parent
             WHERE account = '{user_data.account}'
@@ -53,7 +60,7 @@ class CRUDUser(CRUDBase):
                     algorithm=get_settings().ALGORITHM
                 )
                 
-                return access_token
+                return {"token": access_token}
 
             else:
                 return None
@@ -62,7 +69,7 @@ class CRUDUser(CRUDBase):
             return None
         
     
-    def sign_up(self, token: str, db: Session, insert_data: CreateUser) -> bool:
+    def sign_up(self, invitation_code: str, db: Session, insert_data: CreateUser) -> bool:
         password_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
         
         converted_insert_data = insert_data.dict(exclude_none=True)
@@ -70,95 +77,289 @@ class CRUDUser(CRUDBase):
             secret=converted_insert_data["password"]
         )
         
-        user_type: str = converted_insert_data.pop("user_type")
-        columns: str = ",".join(
-            [ column for column in converted_insert_data.keys() ]
-        )
+        user_type: str = converted_insert_data.pop("user_type")                
         
-        values: str = ""
-        for value in converted_insert_data.values():
-            if isinstance(value, str):
-                values += f"\'{value}\',"
-            elif isinstance(value, Enum):
-                values += f"\'{value.name}',"
+        
+        if invitation_code:
+            if user_type == "parent":
+                invite_table = "child"
+                invited_table = "parent"
+            
             else:
-                values += f"{value},"
+                invite_table = "parent"
+                invited_table = "child"
+            
+            select_invitation_code_query: str = f"""
+            SELECT invitation_code_expired_date
+            FROM {invite_table}
+            WHERE  invitation_code = '{invitation_code}';
+            """
+            
+            invitation_code_result = db.execute(
+                statement=select_invitation_code_query
+            ).fetchone()
+            db.commit()
+            
+            if not invitation_code_result:
+                raise ValueError("invalid invitation code")
+            
+            elif(
+                (invitation_code_result[
+                    "invitation_code_expired_date"
+                ]
+                ).timestamp()
+                <
+                (
+                    get_current_datetime()
+                    -
+                    timedelta(
+                        hours=get_settings().INVITATION_CODE_EXPIRED_HOURS
+                    )
+                ).timestamp()
+            ):
+                raise ValueError("invitation code expired")
+                        
+            else:
+                columns: str = ",".join(
+                    [ column for column in converted_insert_data.keys() ]
+                )
                 
-        current_datetime = convert_datetime_to_string(get_current_datetime())
-        values += f"\'{current_datetime}\',\'{current_datetime}\'"
-        
-        if user_type == "parent":
-            create_parent_query: str = f"""
-            INSERT INTO parent (
-                {columns},
-                created_at,
-                nickname_updated_at
-            )
-            VALUES ({values});
-            """
-            db.execute(statement=create_parent_query)
-            db.commit()
-        
+                values: str = ""
+                for value in converted_insert_data.values():
+                    if isinstance(value, str):
+                        values += f"\'{value}\',"
+                    elif isinstance(value, Enum):
+                        values += f"\'{value.name}',"
+                    else:
+                        values += f"{value},"
+                        
+                current_datetime = convert_datetime_to_string(get_current_datetime())
+                values += f"\'{current_datetime}\',\'{current_datetime}\'"
+                
+                if user_type == "parent":
+                    create_parent_query: str = f"""
+                    INSERT INTO parent (
+                        {columns},
+                        created_at,
+                        nickname_updated_at
+                    )
+                    VALUES ({values});
+                    """
+                    db.execute(statement=create_parent_query)
+                    db.commit()
+                
+                else:
+                    values += f",\'{current_datetime}\'"
+                    create_child_query: str = f"""
+                    INSERT INTO child (
+                        {columns},
+                        created_at,
+                        nickname_updated_at,
+                        character_name_updated_at
+                    )
+                    VALUES ({values});
+                    """
+                    db.execute(statement=create_child_query)
+                    db.commit()
+                    
+                    create_diary_query: str = f"""            
+                    INSERT INTO question_diary
+                    (child_id, question_id, created_at)
+                    VALUES (
+                        (SELECT id FROM child WHERE account = '{
+                            converted_insert_data["account"]
+                        }'),
+                        (SELECT id FROM question ORDER BY RAND() LIMIT 1),
+                        '{current_datetime}'
+                    )
+                    """
+                    db.execute(statement=create_diary_query)
+                    db.commit()                
+                
+                
+                create_parent_child_query: str = f"""
+                INSERT INTO parent_child
+                (
+                    {invite_table}_id,
+                    {invited_table}_id,
+                    level_id,
+                    created_at,
+                    experience,
+                    invitation_code
+                )
+                VALUES (
+                    (SELECT id FROM {invite_table} WHERE invitation_code = '{invitation_code}'),
+                    (SELECT id FROM {invited_table} WHERE account = '{
+                        converted_insert_data["account"]
+                    }'),
+                    (SELECT id FROM level WHERE required_experience = 'LEVEL_1'),
+                    '{current_datetime}',
+                    0,
+                    '{invitation_code}'
+                );
+                """
+                db.execute(statement=create_parent_child_query)
+                db.commit()
+                
+                
+                update_invitation_code_query: str = f"""
+                UPDATE {invite_table} SET invitation_code = NULL;
+                """
+                db.execute(statement=update_invitation_code_query)
+                db.commit()
+                        
+                return True
+            
         else:
-            values += f",\'{current_datetime}\'"
-            create_child_query: str = f"""
-            INSERT INTO child (
-                {columns},
-                created_at,
-                nickname_updated_at,
-                character_name_updated_at
+            columns: str = ",".join(
+                [ column for column in converted_insert_data.keys() ]
             )
-            VALUES ({values});
-            """
-            db.execute(statement=create_child_query)
-            db.commit()
             
-            create_parent_child_query: str = f"""
-            INSERT INTO parent_child
-            (parent_id, child_id, level_id, created_at, experience)
-            VALUES (
-                (SELECT id FROM parent WHERE invitation_code = '{token}'),
-                (SELECT id FROM child WHERE account = '{
-                    converted_insert_data["account"]
-                }'),
-                (SELECT id FROM level WHERE required_experience = 'LEVEL_1'),
-                '{current_datetime}',
-                0
-            );
-            """
-            db.execute(statement=create_parent_child_query)
-            db.commit()
+            values: str = ""
+            for value in converted_insert_data.values():
+                if isinstance(value, str):
+                    values += f"\'{value}\',"
+                elif isinstance(value, Enum):
+                    values += f"\'{value.name}',"
+                else:
+                    values += f"{value},"
+                    
+            current_datetime = convert_datetime_to_string(get_current_datetime())
+            values += f"\'{current_datetime}\',\'{current_datetime}\'"
             
-            create_diary_query: str = f"""            
-            INSERT INTO question_diary
-            (child_id, question_id, created_at)
-            VALUES (
-                (SELECT id FROM child WHERE account = '{
-                    converted_insert_data["account"]
-                }'),
-                (SELECT id FROM question ORDER BY RAND() LIMIT 1),
-                '{current_datetime}'
-            )
-            """
-            db.execute(statement=create_diary_query)
-            db.commit()            
+            if user_type == "parent":
+                create_parent_query: str = f"""
+                INSERT INTO parent (
+                    {columns},
+                    created_at,
+                    nickname_updated_at
+                )
+                VALUES ({values});
+                """
+                db.execute(statement=create_parent_query)
+                db.commit()
             
-        
-        return True
+            else:
+                values += f",\'{current_datetime}\'"
+                create_child_query: str = f"""
+                INSERT INTO child (
+                    {columns},
+                    created_at,
+                    nickname_updated_at,
+                    character_name_updated_at
+                )
+                VALUES ({values});
+                """
+                db.execute(statement=create_child_query)
+                db.commit()
+                
+                create_diary_query: str = f"""            
+                INSERT INTO question_diary
+                (child_id, question_id, created_at)
+                VALUES (
+                    (SELECT id FROM child WHERE account = '{
+                        converted_insert_data["account"]
+                    }'),
+                    (SELECT id FROM question ORDER BY RAND() LIMIT 1),
+                    '{current_datetime}'
+                )
+                """
+                db.execute(statement=create_diary_query)
+                db.commit()
+                        
+            return True
 
 
-    def invite(self, db: Session, user_id: int) -> str:
+    def invite(self, db: Session, user_type: str, user_id: int) -> str:
         invitation_code: str = token_urlsafe(6)
         current_datetime = convert_datetime_to_string(get_current_datetime())
         query: str = f"""
-        UPDATE parent
+        UPDATE {user_type}
         SET invitation_code = '{invitation_code}', invitation_code_expired_date = '{current_datetime}'
         WHERE id = {user_id};
         """
         db.execute(statement=query)
         db.commit()
         
-        return invitation_code
+        return {"invitation_code": invitation_code}
+    
+    
+    def get_invitation_code(self, db: Session, user_id: int) -> dict:
+        query: str = f"""
+        SELECT invitation_code
+        FROM parent
+        WHERE id = {user_id};
+        """
+        result = db.execute(statement=query).fetchone()
+        db.commit()
+        
+        return jsonable_encoder(result)
+    
+    
+    def get_invited_users(
+        self, db: Session, user_id: int, user_type: str
+    ) -> dict:
+        if user_type == "parent":
+            invited_table: str = "child"
+        else:
+            invited_table: str = "parent"            
+            
+        query: str = f"""
+        SELECT
+            {invited_table}.id,
+            {invited_table}.account,
+            {invited_table}.created_at,
+            parent_child.invitation_code,
+            user.character_name        
+        FROM (
+            SELECT
+                id AS {user_type}_id,
+                invitation_code,
+                IF(
+                    STRCMP('{invited_table}', 'child') = 0,
+                    character_name,
+                    NULL
+                ) AS character_name                
+            FROM {user_type}
+            WHERE id = {user_id}
+        ) AS user
+        LEFT JOIN parent_child
+        USING ({user_type}_id)
+        JOIN {invited_table}
+        ON parent_child.{invited_table}_id = {invited_table}.id;        
+        """
+        result = db.execute(statement=query).fetchall()
+        db.commit()
+        
+        return jsonable_encoder(result)
+    
+    
+    def check_if_user_sign_up_by_invitation_code(
+        self, db: Session, invitation_code: str, user_type: str
+    ) -> dict:
+        if user_type == "parent":
+            invited_table: str = "child"
+        else:
+            invited_table: str = "parent"            
+            
+        query: str = f"""
+        SELECT
+            {invited_table}.id,
+            {invited_table}.account,
+            {invited_table}.created_at,
+            parent_child.invitation_code            
+        FROM parent_child
+        JOIN {invited_table}
+        ON (
+            parent_child.invitation_code = '{invitation_code}'
+            AND 
+            parent_child.{invited_table}_id = {invited_table}.id
+        );
+        """
+        result = db.execute(statement=query).fetchone()
+        db.commit()
+        
+        return jsonable_encoder(result)
     
     
     def get_activity_likes(
@@ -258,6 +459,7 @@ class CRUDUser(CRUDBase):
             
         select_question_diary_query: str = f"""
         SELECT
+            child.character_name,
             child.nickname,
             diary.id,
             level.id AS level_id,
@@ -366,14 +568,21 @@ class CRUDUser(CRUDBase):
         """
         result = db.execute(statement=query).fetchall()
         db.commit()
+        
+        return jsonable_encoder(result)
             
     
     def write_diary(self, db: Session) -> dict:
         pass
         
-        
+       
     def get_family_information(self, db: Session) -> dict:
+        query = f"""
+        
         """
+    
+    def create_family_information(self, db: Session, insert_data) -> bool:
+        query = f"""
         
         """
         

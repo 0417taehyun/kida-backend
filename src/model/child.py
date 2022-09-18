@@ -42,6 +42,12 @@ class Child(Base):
     character_name_updated_at: datetime = Column(
         "character_name_updated_at", DateTime(timezone=True), nullable=False
     )
+    invitation_code: str = Column(
+        "invitation_code", VARCHAR(length=8), nullable=True
+    )
+    invication_code_expired_date: datetime = Column(
+        "invitation_code_expired_date", DateTime(timezone=True), nullable=True
+    )      
     parent = relationship(
         "Parent", secondary="parent_child", back_populates="child"
     )

@@ -6,7 +6,10 @@ def get_current_datetime() -> datetime:
     return datetime.utcnow() + delta
 
 
-def convert_string_to_datetime(str_datetime: str) -> datetime:
+def convert_string_to_datetime(
+    str_datetime: str,
+    is_misc_included: bool = True
+) -> datetime:
     return datetime.strptime(str_datetime, "%Y-%m-%d %H:%M:%S.%f")
 
 

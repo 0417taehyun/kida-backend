@@ -8,10 +8,10 @@ from src.database import Base
 
 
 class LevelType(enum.Enum):
-    LEVEL_1: int = 0
-    LEVEL_2: int = 1000
-    LEVEL_3: int = 5000
-    LEVEL_4: int = 10000
+    LEVEL_1: int = 1000
+    LEVEL_2: int = 5000
+    LEVEL_3: int = 10000
+    LEVEL_4: int = 20000
 
 
 class Level(Base):
@@ -32,5 +32,5 @@ class Level(Base):
         VARCHAR(length=1024),
         nullable=False
     )        
-    parent_child = relationship("ParentChild", back_populates="level")
+    child = relationship("Child", back_populates="level")
     

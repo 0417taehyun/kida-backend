@@ -18,11 +18,17 @@ class ActivityDiary(Base):
         "emotion_id",
         Integer,
         ForeignKey("emotion.id"),
+        nullable=True
+    )
+    diary_id: int = Column(
+        "diary_id",
+        Integer,
+        ForeignKey("diary.id"),
         nullable=False
     )
-    content: str = Column("content", VARCHAR(length=512), nullable=False)
+    content: str = Column("content", VARCHAR(length=512), nullable=True)
     answered_at: datetime = Column(
-        "answered_at", DateTime(timezone=True), nullable=False
+        "answered_at", DateTime(timezone=True), nullable=True
     )
     child_activity_like = relationship(
         "ChildActivityLike", back_populates="activity_diary"
@@ -31,4 +37,5 @@ class ActivityDiary(Base):
     activity_diary_reply = relationship(
         "ActivityDiaryReply", back_populates="activity_diary"
     )
+    diary = relationship("Diary", back_populates="activity_diary")
     

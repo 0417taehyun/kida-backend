@@ -2,7 +2,7 @@ import enum
 
 from datetime import datetime
 
-from sqlalchemy import Column, VARCHAR, Enum, DateTime
+from sqlalchemy import Column, VARCHAR, Enum, DateTime, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 
 from src.database import Base
@@ -33,6 +33,14 @@ class Child(Base):
     password: str = Column("password", VARCHAR(length=128), nullable=False)
     nickname: str = Column("nickname", VARCHAR(length=8), nullable=False)
     type: ChildType = Column("type", Enum(ChildType), nullable=False)
+    experience: int = Column("experience", Integer, default=0, nullable=False)
+    level_id: int = Column(
+        "level_id",
+        Integer,
+        ForeignKey(column="level.id"),
+        default=1,
+        nullable=False
+    )    
     nickname_updated_at: datetime = Column(
         "nickname_updated_at", DateTime(timezone=True), nullable=False
     )
@@ -57,4 +65,5 @@ class Child(Base):
     child_activity_like = relationship(
         "ChildActivityLike", back_populates="child"
     )
+    level = relationship("Level", back_populates="level")
     

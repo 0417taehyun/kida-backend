@@ -9,13 +9,9 @@ from fastapi.encoders import jsonable_encoder
 
 from src.core import get_settings
 from src.crud.base import CRUDBase
-from src.model import ParentChild
-from src.schema import CreateUser
-from src.util import (
-    get_current_datetime,
-    convert_datetime_to_string,
-    convert_string_to_datetime
-)
+from src.model import ParentChild, LevelType
+from src.schema import CreateUser, CreateDiary, CreateDiaryReply
+from src.util import get_current_datetime, convert_datetime_to_string
 
 
 class CRUDUser(CRUDBase):
@@ -162,29 +158,40 @@ class CRUDUser(CRUDBase):
                     db.execute(statement=create_child_query)
                     db.commit()
                     
-                    create_diary_query: str = f"""            
+                    create_diary_query: str = f"""
+                    INSERT INTO diary (type, created_at)
+                    VALUES ('question', '{current_datetime}');
+                    """
+                    db.execute(statement=create_diary_query)
+                    db.commit()
+                    
+                    create_question_diary_query: str = f"""            
                     INSERT INTO question_diary
-                    (child_id, question_id, created_at)
+                    (child_id, question_id, diary_id, created_at)
                     VALUES (
                         (SELECT id FROM child WHERE account = '{
                             converted_insert_data["account"]
                         }'),
                         (SELECT id FROM question ORDER BY RAND() LIMIT 1),
+                        (
+                            SELECT id
+                            FROM diary
+                            WHERE type = 'question'
+                            ORDER BY id DESC
+                            LIMIT 1
+                        ),
                         '{current_datetime}'
                     )
                     """
-                    db.execute(statement=create_diary_query)
-                    db.commit()                
-                
+                    db.execute(statement=create_question_diary_query)
+                    db.commit()              
                 
                 create_parent_child_query: str = f"""
                 INSERT INTO parent_child
                 (
                     {invite_table}_id,
                     {invited_table}_id,
-                    level_id,
                     created_at,
-                    experience,
                     invitation_code
                 )
                 VALUES (
@@ -192,9 +199,7 @@ class CRUDUser(CRUDBase):
                     (SELECT id FROM {invited_table} WHERE account = '{
                         converted_insert_data["account"]
                     }'),
-                    (SELECT id FROM level WHERE required_experience = 'LEVEL_1'),
                     '{current_datetime}',
-                    0,
                     '{invitation_code}'
                 );
                 """
@@ -203,7 +208,8 @@ class CRUDUser(CRUDBase):
                 
                 
                 update_invitation_code_query: str = f"""
-                UPDATE {invite_table} SET invitation_code = NULL;
+                UPDATE {invite_table}
+                SET invitation_code = NULL, invitation_code_expired_date = NULL;
                 """
                 db.execute(statement=update_invitation_code_query)
                 db.commit()
@@ -253,18 +259,32 @@ class CRUDUser(CRUDBase):
                 db.execute(statement=create_child_query)
                 db.commit()
                 
-                create_diary_query: str = f"""            
+                create_diary_query: str = f"""
+                INSERT INTO diary (type, created_at)
+                VALUES ('question', '{current_datetime}');
+                """
+                db.execute(statement=create_diary_query)
+                db.commit()
+                
+                create_question_diary_query: str = f"""            
                 INSERT INTO question_diary
-                (child_id, question_id, created_at)
+                (child_id, question_id, diary_id, created_at)
                 VALUES (
                     (SELECT id FROM child WHERE account = '{
                         converted_insert_data["account"]
                     }'),
                     (SELECT id FROM question ORDER BY RAND() LIMIT 1),
+                    (
+                        SELECT id
+                        FROM diary
+                        WHERE type = 'question'
+                        ORDER BY id DESC
+                        LIMIT 1
+                    ),
                     '{current_datetime}'
                 )
                 """
-                db.execute(statement=create_diary_query)
+                db.execute(statement=create_question_diary_query)
                 db.commit()
                         
             return True
@@ -425,7 +445,10 @@ class CRUDUser(CRUDBase):
     def visit_activity(
         self, db: Session, user_id: int, user_type: str, activity_id: int
     ) -> bool:
-        query: str = f"""
+        current_datetime = convert_datetime_to_string(get_current_datetime())
+        
+        
+        update_visit_query: str = f"""
         UPDATE {user_type}_activity_like
         SET is_visited = 1
         WHERE (
@@ -434,137 +457,200 @@ class CRUDUser(CRUDBase):
             {user_type}_id = {user_id}
         );
         """
-        db.execute(statement=query)
+        db.execute(statement=update_visit_query)
+        db.commit()
+        
+        create_diary_query: str = f"""
+        INSERT INTO diary (type, created_at)
+        VALUES ('activity', '{current_datetime}')
+        """
+        db.execute(statement=create_diary_query)
+        db.commit()
+        
+        create_activity_diary_query: str = f"""
+        INSERT INTO activity_diary
+        (child_activity_like_id, diary_id, created_at)
+        VALUES (
+            (
+                SELECT id
+                FROM {user_type}_activity_like
+                WHERE (
+                    activity_id = {activity_id}
+                    AND
+                    {user_type}_id = {user_id}
+                    AND
+                    is_visited = 1
+                )
+            ),
+            (
+                SELECT id
+                FROM diary
+                WHERE type = 'activity'
+                ORDER BY id DESC LIMIT 1
+            ),
+            '{current_datetime}'
+        );
+        """
+        db.execute(statement=create_activity_diary_query)
         db.commit()
         
         return True
 
 
-    def get_latest_diary(
-        self, db: Session, user_id: int, user_type: str
+    def get_diary(
+        self, db: Session, diary_id: int, child_id: int, user_type: str
     ) -> dict:
-        if user_type == "parent":
-            select_child_query: str = f"""
-            SELECT child_id
-            FROM parent_child
-            WHERE parent_child.parent_id = {user_id}
+        if diary_id:
+            query: str = f"""
+            WITH RECURISVE (
+                SELECT
+                
+                FROM diary
+                JOIN (
+                    SELECT
+                    
+                    FROM question_diary
+                    SELECT
+                    
+                    
+                    SELECT id
+                    FROM child
+                    WHERE id = {child_id}
+                )
+                ON
+                
+            )
             """
-            child_result = db.execute(statement=select_child_query).fetchone()
-            db.commit()
+        
+        # else:
+        #     query: str = f"""
+        #     SELECT
+        #         latest_diary.diary_id,
+        #         latest_diary.child_id,
+        #         latest_diary.answered_at,
+        #         latest_diary.question_id,
+        #         COUNT(question_diary_reply.parent_id) AS parent_answered_count
+        #     FROM (
+        #         SELECT
+        #             diary_id,
+        #             child_id,
+        #             answered_at,
+        #             question_id
+        #         FROM question_diary
+        #         WHERE child_id = {child_id}
+        #         ORDER BY answered_at IS NULL, answered_at DESC
+        #         LIMIT 1
+        #     ) AS latest_diary
+        #     LEFT JOIN question_diary_reply
+        #     USING (diary_id)
+        #     GROUP BY (
+        #         latest_diary.diary_id,
+        #         latest_diary.child_id,
+        #         latest_diary.answered_at,
+        #         latest_diary.question_id
+        #     )          
+        #     """
+        #     result = db.execute(statement=query).fetchone()
+        #     db.commit()
             
-            child_id: int = child_result["child_id"]
+        #     converted_data: dict = jsonable_encoder(result)
+        #     levels: dict = { enum.name: enum.value for enum in LevelType }
+        #     converted_data["required_experience"] = levels[
+        #         converted_data["required_experience"]
+        #     ]
+            
+        #     return jsonable_encoder(converted_data)            
+
         
         else:
-            child_id: int = user_id
-            
-        select_question_diary_query: str = f"""
-        SELECT
-            child.character_name,
-            child.nickname,
-            diary.id,
-            level.id AS level_id,
-            parent_child.experience AS current_experience,
-            level.required_experience AS required_experience,
-            diary.question_content,
-            CASE
-                WHEN diary.content IS NULL THEN level.ordinary_character_image_url
-                WHEN question_diary_reply.answered_at IS NULL THEN level.child_to_parent_character_image_url
-                ELSE level.parent_to_child_character_image_url
-            END AS character_image_url,
-            IF(diary.content IS NULL, 0 ,1) AS is_child_answered,
-            IF(question_diary_reply.answered_at IS NULL, 0, 1) AS is_parent_answered
-        FROM (
+            if user_type == "parent":
+                select_child_query: str = f"""
+                SELECT child_id
+                FROM parent_child
+                WHERE parent_child.parent_id = {child_id};
+                """
+                child_result = db.execute(statement=select_child_query).fetchone()
+                db.commit()
+                
+                child_id: int = child_result["child_id"]
+                
+            select_question_diary_query: str = f"""
             SELECT
-                specific_child.id,
-                specific_child.child_id,
-                specific_child.emotion_id,
-                specific_child.content,
-                question.id AS question_id,
-                question.content AS question_content
-            FROM (
-                SELECT *
-                FROM question_diary
-                WHERE child_id = {child_id}
-            ) AS specific_child
-            JOIN question
-            ON specific_child.question_id = question.id
-            ORDER BY answered_at IS NULL, answered_at DESC
-            LIMIT 1
-        ) AS diary
-        JOIN child
-        ON diary.child_id = child.id
-        JOIN parent_child
-        ON diary.child_id = parent_child.child_id
-        JOIN level
-        ON parent_child.level_id = level.id
-        LEFT JOIN question_diary_reply
-        ON diary.id = question_diary_reply.question_diary_id 
-        """
-        question_diary_result = db.execute(
-            statement=select_question_diary_query
-        ).fetchone()
-        db.commit()
-        
-        return jsonable_encoder(question_diary_result)
-    
-    
-    def get_diaries(
-        self, db: Session, user_id: int, user_type: str
-    ) -> dict:        
-        query: str = f"""
-        WITH activity_diaries (
-            is_child_answered
-        ) AS (
-            SELECT
-                IF(activity_diary.answered IS NULL 0, 1) is_child_answered
-            FROM (
-                SELECT 
-                FROM child_ativity_like
-                WHERE child_id = (
-                    SELECT child_id
-                    FROM parent_child
-                    WHERE {user_type}_id = {user_id}
-                )
-            ) AS child_liked_activity
-            JOIN activity_diary
-            ON child_liked_activity.id = activity_diary.child_activity_like_id    
-            JOIN activity_diary_reply
-            ON activity_diary.id = activity_diary_reply.activity_diary_id
-        ), question_diaries (
-            id,
-            type,
-            emotion_type,
-            answered_at,
-            is_child_answered,
-            is_parent_answered
-        ) AS (
-            SELECT
-                child_diary.question_diary_id AS id,            
-                "quesiton" AS type,
-                emotion.type AS emotion_type,
-                child_diary.answered_at AS answered_at,
-                IF(child_diary.answered_at IS NULL, 0, 1) AS is_child_answered,
+                child.character_name,
+                child.nickname,
+                diary.id,
+                level.id AS level_id,
+                child.experience AS current_experience,
+                level.required_experience,
+                diary.question_content,
+                CASE
+                    WHEN diary.content IS NULL THEN level.ordinary_character_image_url
+                    WHEN question_diary_reply.answered_at IS NULL THEN level.child_to_parent_character_image_url
+                    ELSE level.parent_to_child_character_image_url
+                END AS character_image_url,
+                IF(diary.content IS NULL, 0 ,1) AS is_child_answered,
                 IF(question_diary_reply.answered_at IS NULL, 0, 1) AS is_parent_answered
             FROM (
                 SELECT
-                    id AS question_diary_id,
-                    emotion_id,
-                    answered_at
+                    specific_child.id,
+                    specific_child.child_id,
+                    specific_child.emotion_id,
+                    specific_child.content,
+                    specific_child.diary_id,
+                    question.id AS question_id,
+                    question.content AS question_content
+                FROM (
+                    SELECT *
+                    FROM question_diary
+                    WHERE child_id = {child_id}
+                ) AS specific_child
+                JOIN question
+                ON specific_child.question_id = question.id
+                ORDER BY answered_at IS NULL, answered_at DESC
+                LIMIT 1
+            ) AS diary
+            JOIN child
+            ON diary.child_id = child.id
+            JOIN level
+            ON child.level_id = level.id
+            LEFT JOIN question_diary_reply
+            ON diary.diary_id = question_diary_reply.diary_id ;
+            """
+            question_diary_result = db.execute(
+                statement=select_question_diary_query
+            ).fetchone()
+            db.commit()
+            
+            converted_data: dict = jsonable_encoder(question_diary_result)
+            levels: dict = { enum.name: enum.value for enum in LevelType }
+            converted_data["required_experience"] = levels[
+                converted_data["required_experience"]
+            ]
+            
+            return jsonable_encoder(converted_data)
+    
+    
+    def get_diaries(self, db: Session, child_id: int) -> dict:
+        query: str = f"""
+        WITH RECURSIVE question_diaries (
+            SELECT
+            
+            FROM (
+                SELECT
+                    question_diary.diary_id AS id,
+                    question_diary_id AS question_diary_id
                 FROM question_diary
-                WHERE child_id = (
-                    SELECT child_id
-                    FROM parent_child
-                    WHERE {user_type}_id = {user_id}
-                )
-            ) AS child_diary
-            JOIN question_diary_reply
-            USING(question_diary_id)
-            JOIN emotion
-            ON child_diary.emotion_id = emtion.id
+                WHERE child_id = {child_id}
+            )
+            JOIN diary
+            USING (id)
+            LEFT JOIN question_diary_reply
+            USING (question_diary_id)
         )
         
-        SELECRT *
+        SELECT *
         FROM question_diaries
+
         """
         result = db.execute(statement=query).fetchall()
         db.commit()
@@ -572,8 +658,59 @@ class CRUDUser(CRUDBase):
         return jsonable_encoder(result)
             
     
-    def write_diary(self, db: Session) -> dict:
-        pass
+    def write_diary(
+        self,
+        db: Session,
+        user_id: int,
+        user_type: str,
+        diary_type: str,
+        diary_id: int,
+        insert_data: CreateDiary | CreateDiaryReply
+    ) -> dict:
+        table: str = f"{diary_type}_diary"            
+        converted_insert_data: dict = insert_data.dict(exclude_none=True)  
+        current_datetime = convert_datetime_to_string(get_current_datetime())            
+        
+        if user_type == "parent":
+            table += "_reply"
+            columns: str = ",".join(
+                [ column for column in converted_insert_data.keys()]
+            )
+            
+            values: str = ""
+            for value in converted_insert_data.values():
+                if isinstance(value, str):
+                    values += f"\'{value}\',"
+                else:
+                    values += f"{value},"
+            
+            values += f"\'{current_datetime}\'"
+                    
+            query: str = f"""
+            INSERT INTO {table}
+            ({columns}, created_at, answered_at, {user_type}_id, diary_id)
+            VALUES({values}, '{current_datetime}', {user_id}, {diary_id});
+            """
+            
+        else:
+            set_statement: str = ""
+            for column, value in converted_insert_data.items():
+                if isinstance(value, str):
+                    set_statement += f"{column}=\'{value}\',"
+                else:
+                    set_statement += f"{column}={value},"
+
+            set_statement += f"answered_at=\'{current_datetime}\'"              
+            
+            query: str = f"""
+            UPDATE {table} SET {set_statement}
+            WHERE diary_id = {diary_id};
+            """
+            
+        db.execute(statement=query)
+        db.commit()
+    
+        return True
         
        
     def get_family_information(self, db: Session) -> dict:

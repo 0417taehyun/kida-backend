@@ -17,6 +17,12 @@ class QuestionDiary(Base):
     emotion_id: int = Column(
         "emotion_id", Integer, ForeignKey("emotion.id"), nullable=True
     )
+    diary_id: int = Column(
+        "diary_id",
+        Integer,
+        ForeignKey("diary.id"),
+        nullable=False
+    )    
     content: str = Column("content", VARCHAR(length=512), nullable=True)
     answered_at: datetime = Column(
         "answered_at", DateTime(timezone=True), nullable=True
@@ -29,4 +35,5 @@ class QuestionDiary(Base):
         secondary="question_diary_reply",
         back_populates="question_diary"
     )
+    diary = relationship("Diary", back_populates="question_diary")
     

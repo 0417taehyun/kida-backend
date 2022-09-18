@@ -71,6 +71,7 @@ class CRUDBase(Generic[CreateSchema, UpdateSchema]):
         """
         db.execute(statement=query)
         db.commit()
+        
         return True
         
     
@@ -78,6 +79,7 @@ class CRUDBase(Generic[CreateSchema, UpdateSchema]):
         """
         """
         pass
+    
     
     def delete(self, db: Session, id: int):
         """

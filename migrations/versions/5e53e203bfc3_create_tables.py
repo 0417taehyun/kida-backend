@@ -1,8 +1,8 @@
-"""Add Table
+"""Create tables
 
-Revision ID: d3f23b88157b
+Revision ID: 5e53e203bfc3
 Revises: 
-Create Date: 2022-09-16 16:51:28.739878
+Create Date: 2022-09-18 21:33:28.713852
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'd3f23b88157b'
+revision = '5e53e203bfc3'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -54,9 +54,19 @@ def upgrade() -> None:
     sa.Column('nickname_updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('character_name', sa.VARCHAR(length=8), nullable=False),
     sa.Column('character_name_updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('invitation_code', sa.VARCHAR(length=8), nullable=True),
+    sa.Column('invitation_code_expired_date', sa.DateTime(timezone=True), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('account', name='account_unique_constraint'),
     sa.UniqueConstraint('nickname', name='nickname_unique_constraint')
+    )
+    op.create_table('diary',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('type', sa.Enum('ACTIVITY', 'QUESTION', name='diarytype'), nullable=False),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('emotion',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
@@ -124,6 +134,19 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['activity_location_id'], ['activity_location.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('activity_diary_reply',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('parent_id', sa.Integer(), nullable=False),
+    sa.Column('diary_id', sa.Integer(), nullable=False),
+    sa.Column('content', sa.VARCHAR(length=512), nullable=False),
+    sa.Column('answered_at', sa.DateTime(timezone=True), nullable=False),
+    sa.ForeignKeyConstraint(['diary_id'], ['diary.id'], ),
+    sa.ForeignKeyConstraint(['parent_id'], ['parent.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('parent_child',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
@@ -133,6 +156,7 @@ def upgrade() -> None:
     sa.Column('child_id', sa.Integer(), nullable=True),
     sa.Column('level_id', sa.Integer(), nullable=False),
     sa.Column('experience', sa.Integer(), nullable=False),
+    sa.Column('invitation_code', sa.VARCHAR(length=8), nullable=False),
     sa.ForeignKeyConstraint(['child_id'], ['child.id'], ),
     sa.ForeignKeyConstraint(['level_id'], ['level.id'], ),
     sa.ForeignKeyConstraint(['parent_id'], ['parent.id'], ),
@@ -146,6 +170,19 @@ def upgrade() -> None:
     sa.Column('question_category_id', sa.Integer(), nullable=False),
     sa.Column('content', sa.VARCHAR(length=64), nullable=False),
     sa.ForeignKeyConstraint(['question_category_id'], ['question_category.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('question_diary_reply',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('parent_id', sa.Integer(), nullable=False),
+    sa.Column('diary_id', sa.Integer(), nullable=False),
+    sa.Column('content', sa.VARCHAR(length=512), nullable=False),
+    sa.Column('answered_at', sa.DateTime(timezone=True), nullable=False),
+    sa.ForeignKeyConstraint(['diary_id'], ['diary.id'], ),
+    sa.ForeignKeyConstraint(['parent_id'], ['parent.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('child_activity_like',
@@ -191,9 +228,11 @@ def upgrade() -> None:
     sa.Column('child_id', sa.Integer(), nullable=False),
     sa.Column('question_id', sa.Integer(), nullable=False),
     sa.Column('emotion_id', sa.Integer(), nullable=True),
+    sa.Column('diary_id', sa.Integer(), nullable=False),
     sa.Column('content', sa.VARCHAR(length=512), nullable=True),
     sa.Column('answered_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['child_id'], ['child.id'], ),
+    sa.ForeignKeyConstraint(['diary_id'], ['diary.id'], ),
     sa.ForeignKeyConstraint(['emotion_id'], ['emotion.id'], ),
     sa.ForeignKeyConstraint(['question_id'], ['question.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -204,37 +243,13 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('child_activity_like_id', sa.Integer(), nullable=False),
-    sa.Column('emotion_id', sa.Integer(), nullable=False),
-    sa.Column('content', sa.VARCHAR(length=512), nullable=False),
-    sa.Column('answered_at', sa.DateTime(timezone=True), nullable=False),
-    sa.ForeignKeyConstraint(['child_activity_like_id'], ['child_activity_like.id'], ),
-    sa.ForeignKeyConstraint(['emotion_id'], ['emotion.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('question_diary_reply',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('parent_id', sa.Integer(), nullable=False),
+    sa.Column('emotion_id', sa.Integer(), nullable=True),
     sa.Column('diary_id', sa.Integer(), nullable=False),
-    sa.Column('content', sa.VARCHAR(length=512), nullable=False),
-    sa.Column('answered_at', sa.DateTime(timezone=True), nullable=False),
-    sa.ForeignKeyConstraint(['diary_id'], ['question_diary.id'], ),
-    sa.ForeignKeyConstraint(['parent_id'], ['parent.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('activity_diary_reply',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('parent_id', sa.Integer(), nullable=False),
-    sa.Column('activity_diary_id', sa.Integer(), nullable=False),
-    sa.Column('content', sa.VARCHAR(length=512), nullable=False),
-    sa.Column('answered_at', sa.DateTime(timezone=True), nullable=False),
-    sa.ForeignKeyConstraint(['activity_diary_id'], ['activity_diary.id'], ),
-    sa.ForeignKeyConstraint(['parent_id'], ['parent.id'], ),
+    sa.Column('content', sa.VARCHAR(length=512), nullable=True),
+    sa.Column('answered_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['child_activity_like_id'], ['child_activity_like.id'], ),
+    sa.ForeignKeyConstraint(['diary_id'], ['diary.id'], ),
+    sa.ForeignKeyConstraint(['emotion_id'], ['emotion.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     # ### end Alembic commands ###
@@ -242,20 +257,21 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_table('activity_diary_reply')
-    op.drop_table('question_diary_reply')
     op.drop_table('activity_diary')
     op.drop_table('question_diary')
     op.drop_table('parent_activity_like')
     op.drop_table('family')
     op.drop_table('child_activity_like')
+    op.drop_table('question_diary_reply')
     op.drop_table('question')
     op.drop_table('parent_child')
+    op.drop_table('activity_diary_reply')
     op.drop_table('activity')
     op.drop_table('question_category')
     op.drop_table('parent')
     op.drop_table('level')
     op.drop_table('emotion')
+    op.drop_table('diary')
     op.drop_table('child')
     op.drop_table('activity_view')
     op.drop_table('activity_location')

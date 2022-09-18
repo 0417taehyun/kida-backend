@@ -6,6 +6,7 @@ from src.model.activity_location import ActivityLocation
 from src.model.activity_view import ActivityView
 from src.model.child import Child, ChildType
 from src.model.child_activity_like import ChildActivityLike
+from src.model.diary import Diary, DiaryType
 from src.model.emotion import Emotion, EmotionType
 from src.model.family import Family
 from src.model.level import Level, LevelType

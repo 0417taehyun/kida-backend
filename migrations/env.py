@@ -12,6 +12,7 @@ from src.model import (
     ActivityView,
     Child,
     ChildActivityLike,
+    Diary,
     Emotion,    
     Family,
     Level,

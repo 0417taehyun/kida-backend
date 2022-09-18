@@ -14,16 +14,13 @@ class ActivityDiaryReply(Base):
         ForeignKey("parent.id"),
         nullable=False
     )
-    activity_diary_id: int = Column(
-        "activity_diary_id",
-        Integer,
-        ForeignKey("activity_diary.id"),
-        nullable=False
+    diary_id: int = Column(
+        "diary_id", Integer, ForeignKey("diary.id"), nullable=False
     )
     content: str = Column("content", VARCHAR(length=512), nullable=False)
     answered_at: datetime = Column(
         "answered_at", DateTime(timezone=True), nullable=False
     )
     parent = relationship("Parent", back_populates="activity_diary_reply")
-    activity_diary = relationship("ActivityDiary", back_populates="activity_diary_reply")
+    diary = relationship("Diary", back_populates="activity_diary_reply")
     

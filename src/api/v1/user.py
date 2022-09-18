@@ -4,6 +4,9 @@ from fastapi.responses import JSONResponse
 from src.schema import (
     GetUser,
     CreateUser,
+    DiaryType,
+    CreateDiary,
+    CreateDiaryReply,
     check_if_user_sign_up_response,
     get_invited_users_response,
     invite_user_response,
@@ -27,18 +30,32 @@ INVITE_PLURAL_PREFIX: str = BASE_SINGLE_PREFIX + "/invites"
 
 
 @router.get(DIARY_SINGLE_PREFIX)
-def get_latest_diary(
+def get_diary(
+    diary_id: int = Query(
+        None,
+        description="값을 넘길 경우 개별 일기를 조회할 수 있다.",
+        example="2"  
+    ),
+    child_id: int = Query(None, description="", example="1"),
     db=Depends(get_db), payload=Depends(auth_user)
 ) -> JSONResponse:
     """
-    가장 최근 생성된 일기 조회 API
+    가장 최근 생성된 일기 및 개별 일기 조회 API
     
+    Path(optional): diary_id \n
+    
+    경로 매개변수로 특정 일기의 고유한 기본키를 넘길 경우 해당 일기를 조회할 수 있다. \n
+    만약 넘기지 않을 경우 자동으로 최신 일기를 반환하여 응답한다. \n
+    이때 일기의 종류는 자녀가 작성한 일기와 부모가 작성한 답변 모두를 포함한다.
     """
     try:
-        if result := crud_user.get_latest_diary(
-            db=db,
-            user_id=payload.get("user_id"),
-            user_type=payload.get("user_type")
+        if not child_id:
+            child_id = payload.get("user_id")
+        if result := crud_user.get_diary(
+            db = db,
+            diary_id = diary_id,
+            child_id = child_id,
+            user_type = payload.get("user_type")
         ):
             return JSONResponse(
                 content={"data": result},
@@ -58,51 +75,73 @@ def get_latest_diary(
         )
 
 
-@router.get(DIARY_SINGLE_PREFIX)
-def get_specific_diary(
-    diary_id: int = Path(
-        ...,
-        description="",
-        example=""
-    ),
-    db=Depends(get_db),
-    payload=Depends(auth_user)
-) -> JSONResponse:
-    """
-    작성된 개별 일기 조회 API
-    
-    """
-    try:
-        return
-    
-    except Exception as error:
-        return JSONResponse(
-            content={"detail": str(error)},
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
 @router.get(DIARY_PLURAL_PREFIX)
 def get_diaries(
-    db=Depends(get_db), payload=Depends(auth_user)
+    child_id: int = Query(None, description="", example="1"),
+    db = Depends(get_db),
+    payload = Depends(auth_user)
 ) -> JSONResponse:
     """
     작성된 일기 목록 조회 API
     
     """
     try:
-        pass
+        if not child_id:
+            child_id = payload.get("user_id")
+            
+        if result := (
+            crud_user.get_diaries(db=db, child_id=child_id)
+        ):
+            return JSONResponse(
+                content={"data": result},
+                status_code=status.HTTP_200_OK
+            )
+        
+        else:
+            return JSONResponse(
+                content={"data": []},
+                status_code=status.HTTP_200_OK
+            )
     
     except Exception as error:
-        return JSONResponse
+        return JSONResponse(
+            content={"detail": str(error)},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
     
 
-@router.post(DIARY_SINGLE_PREFIX + "/{diary_id}")
+@router.post(DIARY_SINGLE_PREFIX + "/{diary_type}" + "/{diary_id}")
 def write_diary(
-    db=Depends(get_db), payload=Depends(auth_user)
+    diary_type: str = Path(
+        ...,
+        desciprtion="",
+        example="question"
+    ),
+    diary_id: int = Path(..., description="", example="1"),
+    insert_data: CreateDiary | CreateDiaryReply = Body(...),
+    db = Depends(get_db),
+    payload = Depends(auth_user)
 ) -> JSONResponse:
     try:
-        crud_user.write_diary(db=db)
+        """
+        다이어라 작성 API
+        
+        Path(required): diary_type, diary_id
+        Body(requied)
+        
+        """
+        if crud_user.write_diary(
+            db=db,
+            user_id=payload.get("user_id"),
+            user_type=payload.get("user_type"),
+            diary_id=diary_id,
+            diary_type=diary_type,
+            insert_data=insert_data
+        ):
+            return JSONResponse(
+                content={"detail": "success"},
+                status_code=status.HTTP_200_OK
+            )
     
     except Exception as error:
         return JSONResponse(
